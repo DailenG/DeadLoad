@@ -1,0 +1,23 @@
+# Build and test output
+out/
+bin/
+obj/
+*.nupkg
+TestResults/
+testResults.xml
+
+# Probe output collected from workstations (may contain user names and model names)
+measurements/raw/
+
+# Signing material and local secrets (never commit)
+*.pfx
+*.cer
+*.p7x
+.env
+*.local.ps1
+
+# Editor noise
+.vs/
+.vscode/
+*.user
+Thumbs.db

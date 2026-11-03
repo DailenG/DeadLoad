@@ -1,0 +1,16 @@
+# Authenticode signatures cover exact bytes; keep line endings stable so a checkout never
+# differs from what was signed at build time.
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+*.psd1  text eol=crlf
+*.ps1xml text eol=crlf
+*.admx  text eol=crlf
+*.adml  text eol=crlf
+*.xml   text eol=crlf
+*.cs    text eol=crlf
+*.csproj text eol=crlf
+*.nuspec text eol=crlf
+*.md    text eol=lf
+*.json  text eol=lf
+*.ico   binary
+*.png   binary
