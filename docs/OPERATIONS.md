@@ -173,6 +173,14 @@ Never on a production machine. Use a VM with a snapshot, Windows 10 or 11, 64-bi
 installed, a standard user account and an administrator account. Build with signing for the last
 pass; unsigned builds are fine for the earlier ones. Record results in the pilot notes.
 
+**Automated in Windows Sandbox**: `pwsh -File tests\Sandbox\Start-DeadLoadSandboxTest.ps1` (after
+`build\Build.ps1`) builds an upgrade package one patch above HEAD, opens Windows Sandbox (close
+any open sandbox first: a second launch reconnects to it and never runs the new one) and runs
+steps 3 to 10 there with a throwaway standard user; results land in
+`out\sandbox\<stamp>\out\summary.txt` and `results.json`. Not covered there: the real legacy
+MSI (step 2 uses a seeded folder and tasks instead), the tray's icon, menu and notifications,
+and opening the templates in `gpedit.msc`. Those stay manual steps on a VM.
+
 1. **Snapshot** the clean VM. Copy `out\deadload.<version>.nupkg` to a local folder.
 2. **Legacy**: install the Get-FreeSpace 1.3.5.0 MSI, confirm its uninstall entry, folder and
    task exist.

@@ -13,8 +13,10 @@ and gives each user a tray app for self-service.
 
 **Status: pre-release (0.1.0).** Engine, Group Policy templates, scheduler, tray app and the
 signed Chocolatey package are built and tested; defaults come from measurements on seven
-workstations ([docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)). Install, upgrade and uninstall have
-not yet run on a test VM, and no pilot has run ([docs/OPERATIONS.md](docs/OPERATIONS.md)).
+workstations ([docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)). Install, upgrade (with the tray
+running), package parameters, AllSigned, a standard user's actions, uninstall and purge pass in
+Windows Sandbox (80 checks). Still manual: the legacy MSI, the tray's on-screen behavior and
+the templates in `gpedit.msc`; no pilot has run ([docs/OPERATIONS.md](docs/OPERATIONS.md)).
 Read in this order:
 
 1. [PRD.md](PRD.md): what and why.

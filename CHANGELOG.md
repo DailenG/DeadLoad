@@ -24,3 +24,12 @@
 - Tray app `DeadLoadTray.exe` (.NET Framework 4.8) and `Invoke-DeadLoadUserAction.ps1`.
 - Chocolatey package `deadload`, `build/Build.ps1` (build, stage, sign, verify, pack), legacy
   Get-FreeSpace 1.3.5 retirement, and `docs/OPERATIONS.md`.
+- Windows Sandbox acceptance run of the install procedure (`tests/Sandbox`).
+
+### Fixed
+
+- Tray actions exited 1 with no result on Windows PowerShell 5.1: the user action script's
+  module path default used `$PSScriptRoot`, which 5.1 leaves empty in `param()` defaults.
+- User-mode runs no longer replace the machine's `last-run.json` or write Application events.
+- A what-if run no longer misses running guarded processes (`Invoke-CimMethod` honored
+  `-WhatIf`).
