@@ -85,12 +85,16 @@ Export-ModuleMember -Function Invoke-DeadLoad, Export-DeadLoadSupportBundle
             [Parameter(Mandatory)] [pscustomobject]$Sandbox,
             [Parameter(Mandatory)] [string]$Action,
             [hashtable]$Environment = @{},
-            [string]$ModulePath = $Sandbox.StubPath
+            [string]$ModulePath = $Sandbox.StubPath,
+            [string]$ScriptPath = $script:ScriptPath,
+            [switch]$NoModulePath
         )
 
+        $moduleArgument = ' -ModulePath "{0}"' -f $ModulePath
+        if ($NoModulePath) { $moduleArgument = '' }
         $info = New-Object System.Diagnostics.ProcessStartInfo
         $info.FileName = $script:HostPath
-        $info.Arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}" -Action {1} -ModulePath "{2}" -NoEventLog' -f $script:ScriptPath, $Action, $ModulePath
+        $info.Arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}" -Action {1}{2} -NoEventLog' -f $ScriptPath, $Action, $moduleArgument
         $info.UseShellExecute = $false
         $info.CreateNoWindow = $true
         $info.RedirectStandardOutput = $true
@@ -193,6 +197,25 @@ Describe 'Invoke-DeadLoadUserAction CleanTemp' {
         $run.Lines.Count | Should -Be 1
         $run.Result.Action | Should -Be 'CleanTemp'
         $run.Result.Result | Should -Be 'Failed'
+    }
+
+    It 'loads the module beside it when started without -ModulePath, as the tray starts it' {
+        # The installed layout: engine\Invoke-DeadLoadUserAction.ps1 and engine\DeadLoad\DeadLoad.psd1.
+        $engine = Join-Path $script:sb.Root 'engine'
+        $moduleFolder = Join-Path $engine 'DeadLoad'
+        [void][System.IO.Directory]::CreateDirectory($moduleFolder)
+        Copy-Item -LiteralPath $script:ScriptPath -Destination $engine
+        Copy-Item -LiteralPath $script:sb.StubPath -Destination $moduleFolder
+        $manifest = "@{ RootModule = 'DeadLoadStub.psm1'; ModuleVersion = '0.0.1'; GUID = '0f6d1c52-2a43-4d1e-9a51-3c2b7e9d4a10'; FunctionsToExport = @('Invoke-DeadLoad', 'Export-DeadLoadSupportBundle') }"
+        [System.IO.File]::WriteAllText((Join-Path $moduleFolder 'DeadLoad.psd1'), $manifest, (New-Object System.Text.UTF8Encoding $false))
+
+        $run = Invoke-DLUAScript -Sandbox $script:sb -Action CleanTemp -ScriptPath (Join-Path $engine 'Invoke-DeadLoadUserAction.ps1') -NoModulePath
+
+        $run.Stderr | Should -BeNullOrEmpty
+        $run.ExitCode | Should -Be 0
+        $run.Lines.Count | Should -Be 1
+        $run.Result.Result | Should -Be 'Success'
+        Test-Path -LiteralPath (Join-Path $moduleFolder 'calls.jsonl') | Should -BeTrue
     }
 }
 

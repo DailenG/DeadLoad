@@ -38,7 +38,10 @@ param
     [ValidateSet('CleanTemp', 'CollectLogs')]
     [string]$Action,
 
-    [string]$ModulePath = (Join-Path $PSScriptRoot 'DeadLoad\DeadLoad.psd1'),
+    # Resolved in the body: Windows PowerShell 5.1 leaves $PSScriptRoot empty in param()
+    # defaults of a script started with -File, so a default here fails to bind before any
+    # code runs and the tray gets exit 1 with no result.
+    [string]$ModulePath,
 
     [switch]$NoEventLog
 )
@@ -359,6 +362,7 @@ try
     }
     else
     {
+        if (-not $ModulePath) { $ModulePath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'DeadLoad\DeadLoad.psd1' }
         Import-Module -Name $ModulePath -ErrorAction Stop -Verbose:$false
         if ($Action -eq 'CleanTemp') { Invoke-DLUACleanTemp -Result $result }
         else { Invoke-DLUACollectLogs -Result $result -Policy $policy }
