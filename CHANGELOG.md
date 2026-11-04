@@ -25,6 +25,8 @@
 - Chocolatey package `deadload`, `build/Build.ps1` (build, stage, sign, verify, pack), legacy
   Get-FreeSpace 1.3.5 retirement, and `docs/OPERATIONS.md`.
 - Windows Sandbox acceptance run of the install procedure (`tests/Sandbox`).
+- Legacy retirement also drops Chocolatey's record of a Get-FreeSpace package
+  (`choco uninstall <id> -n`), so `choco upgrade all` cannot reinstall it.
 
 ### Fixed
 
