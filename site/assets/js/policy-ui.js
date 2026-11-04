@@ -1,5 +1,7 @@
 // DeadLoad policy generator page: wires the form to the pure functions in policy-generator.js.
-// Reads data/settings.json from this site; sends nothing anywhere.
+// Reads data/settings.json and data/product-groups.json from this site; sends nothing anywhere.
+// One source of truth: state.values, keyed by setting id. Every control showing a setting
+// (common settings, Autodesk products, All settings) reads and writes that same entry.
 import {
   PRESETS,
   COMMON_SETTING_IDS,
@@ -7,13 +9,19 @@ import {
   toPowerShell,
   toRegFile,
   toGpmcText,
-  gpmcRows
+  gpmcRows,
+  resolveProductGroups,
+  productLabels,
+  isCategoryOn,
+  switchValue
 } from './policy-generator.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 
 const state = {
   catalog: null,
+  products: null,
+  labels: null,
   preset: 'pilot',
   values: {},
   gpoName: '',
@@ -171,7 +179,7 @@ function syncFieldErrors(result) {
 function renderGpmcTable(changes) {
   const root = $('#out-gpmc');
   root.replaceChildren();
-  const rows = gpmcRows(changes, { trayScope: state.trayScope });
+  const rows = gpmcRows(changes, { trayScope: state.trayScope, labels: state.labels });
   if (rows.length === 0) {
     root.append(el('p', { class: 'empty', text: 'Nothing to set: the defaults apply.' }));
     return;
@@ -185,10 +193,112 @@ function renderGpmcTable(changes) {
   ]));
   const body = el('tbody');
   for (const row of rows) {
-    body.append(el('tr', {}, [el('td', { text: row.path }), el('td', { text: row.policy }), el('td', { text: row.state })]));
+    const policy = el('td', { text: row.policy });
+    if (row.meaning) policy.append(el('span', { class: 'meaning', text: row.meaning }));
+    body.append(el('tr', {}, [el('td', { text: row.path }), policy, el('td', { text: row.state })]));
   }
   table.append(head, body);
   root.append(el('div', { class: 'table-wrap' }, table));
+}
+
+// ---------------------------------------------------------------- Autodesk products panel
+function switchId(category) {
+  return 'p-' + category.enabled.id;
+}
+
+function knobField(knob) {
+  const setting = knob.setting;
+  const id = 'p-' + setting.id;
+  const hintId = id + '-hint';
+  const errorId = id + '-error';
+  const unit = knob.unit ? ` (${knob.unit})` : '';
+  const input = el('input', {
+    id,
+    type: 'text',
+    inputmode: 'numeric',
+    autocomplete: 'off',
+    spellcheck: 'false',
+    placeholder: String(setting.default),
+    'aria-describedby': `${hintId} ${errorId}`
+  });
+  input.dataset.setting = setting.id;
+  input.value = Object.prototype.hasOwnProperty.call(state.values, setting.id) ? String(state.values[setting.id]) : '';
+  const range = typeof setting.min === 'number' ? ` Allowed: ${setting.min} to ${setting.max}.` : '';
+  // The label carries the unit, so the hint states the bare number.
+  const hint = `${knob.help} Default: ${setting.default}.${range}`.trim();
+  return el('div', { class: 'field knob' }, [
+    el('label', { for: id, text: knob.label + unit }),
+    input,
+    el('p', { class: 'hint', id: hintId, text: hint }),
+    el('p', { class: 'error', id: errorId, hidden: true })
+  ]);
+}
+
+function renderProducts() {
+  const root = $('#product-fields');
+  root.replaceChildren();
+  for (const product of state.products.products) {
+    const fieldset = el('fieldset', { class: 'product' }, el('legend', { text: product.name }));
+    for (const category of product.categories) {
+      const info = category.info;
+      const id = switchId(category);
+      const defaultOn = Number(category.enabled.default) === 1;
+      const toggle = el('input', { type: 'checkbox', id, role: 'switch', 'aria-describedby': `${id}-desc ${id}-default` });
+      toggle.dataset.switch = category.enabled.id;
+      const head = el('div', { class: 'category-head' }, [
+        el('span', { class: 'switch' }, [toggle, el('label', { for: id, text: info.displayName || info.id })]),
+        el('span', { class: 'category-meta' }, [
+          info.risk ? riskBadge(info.risk) : null,
+          el('span', { class: 'category-default', id: `${id}-default`, text: `Default: ${defaultOn ? 'on' : 'off'}` })
+        ])
+      ]);
+      const row = el('div', { class: 'category', 'data-category': info.id }, [
+        head,
+        el('p', { class: 'category-desc', id: `${id}-desc`, text: info.description || '' })
+      ]);
+      if (category.offReason) row.append(el('p', { class: 'category-reason', 'data-off-reason': '', text: category.offReason }));
+      row.append(el('p', { class: 'category-warning', 'data-warning': '', 'aria-live': 'polite' }));
+      const knobs = el('div', { class: 'knobs fields', 'data-knobs': '' });
+      for (const knob of category.knobs) knobs.append(knobField(knob));
+      row.append(knobs);
+      fieldset.append(row);
+    }
+    root.append(fieldset);
+  }
+  refreshProducts();
+}
+
+// Switch state, knob visibility and warnings follow state.values (they may change from All settings).
+function refreshProducts() {
+  if (!state.products) return;
+  for (const product of state.products.products) {
+    for (const category of product.categories) {
+      const row = document.querySelector(`[data-category="${category.info.id}"]`);
+      if (!row) continue;
+      const on = isCategoryOn(category.enabled, state.values);
+      const defaultOn = Number(category.enabled.default) === 1;
+      row.querySelector('[data-switch]').checked = on;
+      row.classList.toggle('is-off', !on);
+      row.querySelector('[data-knobs]').hidden = !on || category.knobs.length === 0;
+      const reason = row.querySelector('[data-off-reason]');
+      if (reason) reason.hidden = on;
+      let warning = '';
+      if (on && !defaultOn) warning = category.onWarning;
+      if (!on && defaultOn) warning = category.offWarning || 'Off: DeadLoad no longer acts on this category.';
+      const box = row.querySelector('[data-warning]');
+      if (box.textContent !== warning) box.textContent = warning;
+      box.hidden = warning === '';
+    }
+  }
+}
+
+// Writes one setting and shows it in every other control bound to it.
+function setValue(id, value, source) {
+  state.values[id] = value;
+  for (const control of document.querySelectorAll(`[data-setting="${id}"]`)) {
+    if (control !== source) control.value = value;
+  }
+  update();
 }
 
 function update() {
@@ -200,7 +310,7 @@ function update() {
   const gpoError = $('#gpo-name-error');
   gpoError.textContent = gpoValid ? '' : 'Use printable ASCII characters only.';
   gpoError.hidden = gpoValid;
-  const options = { gpoName: gpoValid ? state.gpoName.trim() : '', trayScope: state.trayScope, preset: state.preset || null };
+  const options = { gpoName: gpoValid ? state.gpoName.trim() : '', trayScope: state.trayScope, preset: state.preset || null, labels: state.labels };
 
   const changes = result.changes;
   state.outputs.ps = toPowerShell(changes, options);
@@ -209,6 +319,8 @@ function update() {
   $('#out-ps').textContent = state.outputs.ps;
   $('#out-reg').textContent = state.outputs.reg;
   renderGpmcTable(changes);
+
+  refreshProducts();
 
   const summary = $('#summary');
   if (changes.length === 0) summary.textContent = 'Nothing to set: the defaults apply.';
@@ -315,8 +427,7 @@ function wire() {
   form.addEventListener('input', (event) => {
     const target = event.target;
     if (target.dataset && target.dataset.setting) {
-      state.values[target.dataset.setting] = target.value;
-      update();
+      setValue(target.dataset.setting, target.value, target);
     } else if (target.id === 'gpo-name') {
       state.gpoName = target.value;
       update();
@@ -328,9 +439,11 @@ function wire() {
     else if (target.name === 'tray-scope') {
       state.trayScope = target.value;
       update();
+    } else if (target.dataset && target.dataset.switch) {
+      const enabled = state.catalog.settings.find((s) => s.id === target.dataset.switch);
+      setValue(enabled.id, switchValue(enabled, target.checked), null);
     } else if (target.dataset && target.dataset.setting) {
-      state.values[target.dataset.setting] = target.value;
-      update();
+      setValue(target.dataset.setting, target.value, target);
     }
   });
   $('#reset').addEventListener('click', () => {
@@ -360,10 +473,21 @@ async function start() {
     box.hidden = false;
     return;
   }
+  try {
+    const response = await fetch('data/product-groups.json', { cache: 'no-cache' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    state.products = resolveProductGroups(state.catalog, await response.json());
+    state.labels = productLabels(state.products);
+  } catch (error) {
+    // The rest of the generator works without the curated panel; All settings has every value.
+    state.products = null;
+    $('#products-panel').hidden = true;
+  }
   const checked = document.querySelector('input[name="preset"]:checked');
   state.preset = checked ? checked.value : 'pilot';
   for (const [id, value] of Object.entries(PRESETS[state.preset] ? PRESETS[state.preset].values : {})) state.values[id] = value;
   renderCommon();
+  if (state.products) renderProducts();
   renderAll();
   update();
 }

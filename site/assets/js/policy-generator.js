@@ -155,7 +155,13 @@ function describe(preset) {
 
 const CRLF = '\r\n';
 
-export function toPowerShell(changes, { gpoName = '', trayScope = 'Machine', preset = null } = {}) {
+// labels: optional Map of setting id -> plain-English label (from the products panel), shown
+// beside the policy's own name so a curated value is easy to recognize in every output.
+function labelFor(labels, setting) {
+  return labels && labels.has(setting.id) ? labels.get(setting.id) : '';
+}
+
+export function toPowerShell(changes, { gpoName = '', trayScope = 'Machine', preset = null, labels = null } = {}) {
   const lines = [];
   lines.push('# DeadLoad Group Policy values, from the DeadLoad policy generator.');
   lines.push(`# ${describe(preset)} ${changes.length} value(s). Review before running.`);
@@ -191,7 +197,8 @@ export function toPowerShell(changes, { gpoName = '', trayScope = 'Machine', pre
     const key = `${policyHive(setting, { trayScope })}\\${setting.key}`;
     const type = setting.registryType === 'REG_DWORD' ? 'DWord' : 'String';
     const data = setting.registryType === 'REG_DWORD' ? String(Number(value)) : psQuote(value);
-    lines.push(`# ${setting.display}`);
+    const label = labelFor(labels, setting);
+    lines.push(`# ${setting.display}${label ? ` (${label})` : ''}`);
     lines.push(`Set-GPRegistryValue -Name $GpoName -Key ${psQuote(key)} -ValueName ${psQuote(setting.valueName)} -Type ${type} -Value ${data} | Out-Null`);
   }
   lines.push('');
@@ -234,12 +241,18 @@ export function gpmcState(setting, value) {
   return `Enabled, ${shown}`;
 }
 
-export function gpmcRows(changes, { trayScope = 'Machine' } = {}) {
+export function gpmcRows(changes, { trayScope = 'Machine', labels = null } = {}) {
   return changes.map(({ setting, value }) => {
     const root = policyHive(setting, { trayScope }) === 'HKCU' ? 'User Configuration' : 'Computer Configuration';
     const folders = [root, 'Policies', 'Administrative Templates', 'DeadLoad', setting.sectionName];
     if (setting.categoryId) folders.push(setting.categoryFolder || setting.categoryId);
-    return { id: setting.id, path: folders.join(' > '), policy: setting.display, state: gpmcState(setting, value) };
+    return {
+      id: setting.id,
+      path: folders.join(' > '),
+      policy: setting.display,
+      meaning: labelFor(labels, setting),
+      state: gpmcState(setting, value)
+    };
   });
 }
 
@@ -250,6 +263,87 @@ export function toGpmcText(changes, options = {}) {
   for (const row of rows) {
     out.push(row.path);
     out.push(`  ${row.policy}: ${row.state}`);
+    if (row.meaning) out.push(`    (${row.meaning})`);
   }
   return out.join('\n') + '\n';
+}
+
+// ---------------------------------------------------------------- Autodesk products panel
+// groups is data/product-groups.json: products -> categories -> knobs (value names of category
+// settings). These helpers resolve it against the catalog; the UI only renders the result.
+
+export function findCategorySetting(catalog, categoryId, valueName) {
+  return catalog.settings.find((s) => s.categoryId === categoryId && s.valueName === valueName) || null;
+}
+
+// Returns { products, problems }. problems lists every curated id the catalog does not have,
+// or a knob whose type differs; the UI shows resolved entries only.
+export function resolveProductGroups(catalog, groups) {
+  const problems = [];
+  const infos = new Map((catalog.categories || []).map((c) => [c.id, c]));
+  const products = [];
+  for (const product of groups.products || []) {
+    const categories = [];
+    for (const entry of product.categories || []) {
+      const info = infos.get(entry.id);
+      const enabled = findCategorySetting(catalog, entry.id, 'Enabled');
+      if (!info || !enabled) {
+        problems.push(`${product.id}: category ${entry.id} is not in the catalog`);
+        continue;
+      }
+      const knobs = [];
+      for (const knob of entry.knobs || []) {
+        const setting = findCategorySetting(catalog, entry.id, knob.setting);
+        if (!setting) {
+          problems.push(`${entry.id}: setting ${knob.setting} is not in the catalog`);
+          continue;
+        }
+        if (knob.type && knob.type !== setting.type) {
+          problems.push(`${entry.id}: setting ${knob.setting} is ${setting.type}, not ${knob.type}`);
+          continue;
+        }
+        knobs.push({ setting, label: knob.label, unit: knob.unit || '', help: knob.help || '' });
+      }
+      categories.push({
+        info,
+        enabled,
+        knobs,
+        offReason: entry.offReason || '',
+        onWarning: entry.onWarning || '',
+        offWarning: entry.offWarning || ''
+      });
+    }
+    products.push({ id: product.id, name: product.name, categories });
+  }
+  return { products, problems };
+}
+
+// Plain-English labels of every curated setting, for the outputs.
+export function productLabels(resolved) {
+  const labels = new Map();
+  for (const product of resolved.products) {
+    for (const category of product.categories) {
+      const name = category.info.displayName || category.info.id;
+      labels.set(category.enabled.id, `${name}: on or off`);
+      for (const knob of category.knobs) {
+        labels.set(knob.setting.id, `${name}: ${knob.label} N ${knob.unit}`.trim());
+      }
+    }
+  }
+  return labels;
+}
+
+// Whether a category is on, from the form value (if configured and valid) or its default.
+export function isCategoryOn(enabledSetting, values) {
+  const raw = Object.prototype.hasOwnProperty.call(values, enabledSetting.id) ? values[enabledSetting.id] : '';
+  if (raw === undefined || raw === null || String(raw).trim() === '') return Number(enabledSetting.default) === 1;
+  const result = validateValue(enabledSetting, raw);
+  return result.ok ? result.value === 1 : Number(enabledSetting.default) === 1;
+}
+
+// The form value a category switch writes: '' (not configured) when it matches the shipped
+// default, so switching back emits nothing; else '1' or '0'.
+export function switchValue(enabledSetting, on) {
+  const value = on ? 1 : 0;
+  return value === Number(enabledSetting.default) ? '' : String(value);
 }

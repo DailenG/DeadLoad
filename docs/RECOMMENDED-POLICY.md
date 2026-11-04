@@ -35,6 +35,33 @@ of every value, is in the ADMX templates and in the
   Autodesk installation files under `C:\Autodesk` (D8), AutoCAD graphics cache, automatic save
   files and error logs. Turn one on only for a measured reason (category policy `Enabled`).
 
+## Per product
+
+The policy generator's **Autodesk products** panel shows each category with its on/off switch
+(the category's `Enabled` policy), its risk tier and only the limits its rule uses. Values live
+under `HKLM\SOFTWARE\Policies\DeadLoad\Categories\<category id>`. Change one only for a measured
+reason; the shipped value is the recommendation.
+
+| Product | Category | Default | Limits worth knowing (shipped value) |
+|---|---|---|---|
+| Revit | `revit.journals` | on | `AgeDays` compress after 3 days; under pressure `PressureKeepNewest` 20, `PressureAgeDays` 2 (D19) |
+| Revit | `revit.journals.archive` | on | `AgeDays` 180; `ProtectNewest` 1 |
+| Revit | `revit.ini.journalshelf` | on | `ShelfLifeDays` 14, `ShelfCapacity` 10. Keep it on while journals are compressed: Revit's own cleanup otherwise deletes journals older than 10 days (D18) |
+| Revit | `revit.webcache` | on | `AgeDays` 14; `PressureAgeDays` 3 |
+| Revit | `revit.paccache` | on | pressure only (D9): `PressureAgeDays` 7 |
+| Revit | `revit.collabcache` | off (D7) | pressure only: `PressureAgeDays` 90, `MinAgeHours` 2160. Removing a model's cache can lose changes that were saved but not synchronized; have users synchronize first |
+| Revit | `revit.oldversions` | off | `AgeDays` 90; `PressureAgeDays` 30. Deletes whole folders of uninstalled Revit years, journals and model backups included |
+| AutoCAD | `autocad.graphicscache` | off | `AgeDays` 30; `PressureAgeDays` 7. Measured too small to need a rule |
+| AutoCAD | `autocad.recovery` | off | `AgeDays` 30; `MinAgeHours` 72. Recovery data; never part of a user-started cleanup (D25) |
+| AutoCAD | `autocad.errorlogs` | off | `AgeDays` 30 |
+| Shared | `autodesk.cer` | on | `AgeDays` 30; `ProtectNewest` 5 |
+| Shared | `autodesk.installlogs` | on | `AgeDays` 90; `ProtectNewest` 5 |
+| Shared | `autodesk.installers` | off (D8) | pressure only: `PressureAgeDays` 90, `MinAgeHours` 2160. Updates, repairs and reinstalls may need these files |
+| Temporary files | `user.temp`, `windows.temp` | on | `AgeDays` 7; `MinAgeHours` 24 |
+
+Civil 3D is not measured or supported. Custom targets (a list policy) are set in the Group Policy
+editor, not in the generator.
+
 ## Two presets
 
 The [policy generator](https://daileng.github.io/DeadLoad/policy.html) offers both; the values

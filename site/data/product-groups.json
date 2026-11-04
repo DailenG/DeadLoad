@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "comment": "Curated view of the built-in categories for the policy generator's Autodesk products panel. Every category id and knob value name must exist in settings.json (tests/site check it). Knobs are only settings the category's shipped rule actually uses (src/engine/DeadLoad/Data/Defaults.psd1): no routine age where RoutineAction is None. Reasons and warnings come from docs/ARCHITECTURE.md section 7 and decisions D7, D8, D18, D19, D20, D25.",
+  "excluded": [
+    {
+      "id": "custom.*",
+      "reason": "Custom targets are a list policy (one registry value per target) and are not in the settings catalog; set them in the Group Policy editor."
+    }
+  ],
+  "products": [
+    {
+      "id": "revit",
+      "name": "Revit",
+      "categories": [
+        {
+          "id": "revit.journals",
+          "knobs": [
+            { "setting": "AgeDays", "type": "Int", "label": "Compress journals older than", "unit": "days", "help": "Journals are compressed into monthly zip archives beside them; each entry is verified before the original is deleted." },
+            { "setting": "PressureKeepNewest", "type": "Int", "label": "Under disk pressure, keep the newest", "unit": "journals per Revit version", "help": "Journals are deleted only when free space is below the pressure floor, and these newest ones are always kept (D19)." },
+            { "setting": "PressureAgeDays", "type": "Int", "label": "Under disk pressure, delete only journals older than", "unit": "days", "help": "Applies only below the pressure floor." }
+          ],
+          "offWarning": "Off: journals are no longer compressed or archived by DeadLoad. Revit's own journal cleanup still applies."
+        },
+        {
+          "id": "revit.journals.archive",
+          "knobs": [
+            { "setting": "AgeDays", "type": "Int", "label": "Delete archives older than", "unit": "days", "help": "Archives are the monthly zip files DeadLoad writes from compressed journals." },
+            { "setting": "ProtectNewest", "type": "Int", "label": "Always keep the newest", "unit": "archives per Revit version", "help": "Kept by every rule, including under disk pressure." }
+          ]
+        },
+        {
+          "id": "revit.ini.journalshelf",
+          "knobs": [
+            { "setting": "ShelfLifeDays", "type": "Int", "label": "Raise Revit's journal shelf life to at least", "unit": "days", "help": "Revit.ini [Backups] JournalShelfLife. Revit itself deletes older journals once it holds more than its count; this keeps them long enough for DeadLoad to compress them (D18)." },
+            { "setting": "ShelfCapacity", "type": "Int", "label": "Raise Revit's journal count to at least", "unit": "journals", "help": "Revit.ini [Backups] JournalShelfCapacity. The shipped value keeps Revit's own default of 10." }
+          ],
+          "offWarning": "Off: Revit's own cleanup keeps its defaults (more than 10 journals: those older than 10 days are deleted), which can delete journals before DeadLoad's weekly run compresses them (D18)."
+        },
+        {
+          "id": "revit.webcache",
+          "knobs": [
+            { "setting": "AgeDays", "type": "Int", "label": "Delete cache files older than", "unit": "days", "help": "Age is the newest of created, modified and accessed." },
+            { "setting": "PressureAgeDays", "type": "Int", "label": "Under disk pressure, delete cache files older than", "unit": "days", "help": "Applies only below the pressure floor." }
+          ]
+        },
+        {
+          "id": "revit.paccache",
+          "knobs": [
+            { "setting": "PressureAgeDays", "type": "Int", "label": "Under disk pressure, delete content older than", "unit": "days", "help": "There is no routine rule: Revit manages the size of this cache itself (D9). Its Logs folder and .json files are always kept." }
+          ]
+        },
+        {
+          "id": "revit.collabcache",
+          "knobs": [
+            { "setting": "PressureAgeDays", "type": "Int", "label": "Under disk pressure, remove project caches not used for", "unit": "days", "help": "The collaboration cache is only ever removed under disk pressure, one project folder at a time." },
+            { "setting": "MinAgeHours", "type": "Int", "label": "Never remove a project cache used in the last", "unit": "hours", "help": "2160 hours is 90 days. Both limits apply: a project cache must pass both." }
+          ],
+          "offReason": "Off by default (D7): Autodesk documents that clearing the collaboration cache destroys changes that were saved but not yet synchronized.",
+          "onWarning": "Removing a model's collaboration cache can lose changes that were saved but not synchronized. Ask users to synchronize with central first. Restricted: users never see it in their review; only the scheduled runs remove it, under disk pressure, while the user does not run Revit."
+        },
+        {
+          "id": "revit.oldversions",
+          "knobs": [
+            { "setting": "AgeDays", "type": "Int", "label": "Delete a version's folder when nothing in it changed for", "unit": "days", "help": "Only folders of Revit years that are not installed. The collaboration cache inside is excluded." },
+            { "setting": "PressureAgeDays", "type": "Int", "label": "Under disk pressure, when nothing in it changed for", "unit": "days", "help": "Applies only below the pressure floor." }
+          ],
+          "offReason": "Off by default: the measured folders hold only journals, crash dumps and model backups. Revit journals are already kept as records, and deleting a whole version folder is a records decision for the owner.",
+          "onWarning": "Deletes the whole folder of a Revit version that is no longer installed, including its journals and model backups. Restricted: only the scheduled runs act on it."
+        }
+      ]
+    },
+    {
+      "id": "autocad",
+      "name": "AutoCAD",
+      "categories": [
+        {
+          "id": "autocad.graphicscache",
+          "knobs": [
+            { "setting": "AgeDays", "type": "Int", "label": "Delete cache files older than", "unit": "days", "help": "Age is the newest of created, modified and accessed." },
+            { "setting": "PressureAgeDays", "type": "Int", "label": "Under disk pressure, delete cache files older than", "unit": "days", "help": "Applies only below the pressure floor." }
+          ],
+          "offReason": "Off by default: measured at most 34 MB per user and year, too small to justify a default rule.",
+          "onWarning": "AutoCAD rebuilds the cache, so drawings may open slower the next time."
+        },
+        {
+          "id": "autocad.recovery",
+          "knobs": [
+            { "setting": "AgeDays", "type": "Int", "label": "Delete automatic save files older than", "unit": "days", "help": "Age is the modified time." },
+            { "setting": "MinAgeHours", "type": "Int", "label": "Never delete files newer than", "unit": "hours", "help": "Recent automatic saves are always kept." }
+          ],
+          "offReason": "Off by default: automatic save files can recover a drawing after AutoCAD closes unexpectedly, and on the measured workstations none or only empty ones were found.",
+          "onWarning": "A deleted automatic save file can no longer recover a drawing. Restricted: never part of a user-started cleanup (D25); only the scheduled runs act on it."
+        },
+        {
+          "id": "autocad.errorlogs",
+          "knobs": [
+            { "setting": "AgeDays", "type": "Int", "label": "Delete error logs and dumps older than", "unit": "days", "help": "Age is the modified time." }
+          ],
+          "offReason": "Off by default: documented by Autodesk, but none were found on the measured workstations, and Windows already caps the CrashDumps folder at 10 dumps."
+        }
+      ]
+    },
+    {
+      "id": "shared",
+      "name": "Shared Autodesk components",
+      "categories": [
+        {
+          "id": "autodesk.cer",
+          "knobs": [
+            { "setting": "AgeDays", "type": "Int", "label": "Delete crash reports older than", "unit": "days", "help": "Each item is one crash-signature folder, judged by the newest file in it." },
+            { "setting": "ProtectNewest", "type": "Int", "label": "Always keep the newest", "unit": "reports per user", "help": "Kept by every rule, including under disk pressure." }
+          ]
+        },
+        {
+          "id": "autodesk.installlogs",
+          "knobs": [
+            { "setting": "AgeDays", "type": "Int", "label": "Delete installer logs older than", "unit": "days", "help": "Age is the modified time. The install history (IHT) folder is left to the Autodesk installer." },
+            { "setting": "ProtectNewest", "type": "Int", "label": "Always keep the newest", "unit": "logs per user", "help": "Kept by every rule, including under disk pressure." }
+          ]
+        },
+        {
+          "id": "autodesk.installers",
+          "knobs": [
+            { "setting": "PressureAgeDays", "type": "Int", "label": "Under disk pressure, remove installer folders not used for", "unit": "days", "help": "There is no routine rule: installer folders are only removed under disk pressure." },
+            { "setting": "MinAgeHours", "type": "Int", "label": "Never remove a folder used in the last", "unit": "hours", "help": "2160 hours is 90 days. Both limits apply." }
+          ],
+          "offReason": "Off by default (D8): Autodesk says the extracted installation files can be deleted after installation but recommends keeping them; updates, repairs and reinstalls may need them.",
+          "onWarning": "Removed only under disk pressure, never Network License Manager and never a folder an installed product names as its install source. An update or repair may then need the installation media again."
+        }
+      ]
+    },
+    {
+      "id": "temp",
+      "name": "Temporary files",
+      "categories": [
+        {
+          "id": "user.temp",
+          "knobs": [
+            { "setting": "AgeDays", "type": "Int", "label": "Delete files older than", "unit": "days", "help": "Age is the newest of created, modified and accessed. Files of a Revit or AutoCAD session that is still running are kept (D20)." },
+            { "setting": "MinAgeHours", "type": "Int", "label": "Never touch files newer than", "unit": "hours", "help": "Applies to every rule, including under disk pressure." }
+          ]
+        },
+        {
+          "id": "windows.temp",
+          "knobs": [
+            { "setting": "AgeDays", "type": "Int", "label": "Delete files older than", "unit": "days", "help": "Age is the newest of created, modified and accessed." },
+            { "setting": "MinAgeHours", "type": "Int", "label": "Never touch files newer than", "unit": "hours", "help": "Applies to every rule, including under disk pressure." }
+          ]
+        }
+      ]
+    }
+  ]
+}
