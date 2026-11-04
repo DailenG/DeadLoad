@@ -33,8 +33,18 @@
         How many folder levels below each root get their own row in the tree summaries.
         Deeper content is still counted in its ancestors.
 
+    .PARAMETER MinRowBytes
+        Rows below depth 1 smaller than this are folded into their ancestors (counted, not
+        listed). Installed content libraries hold thousands of small folders; listing them
+        all makes the output too large for RMM consoles that keep about 100 KB of output.
+
     .PARAMETER RootTimeBudgetSeconds
         Maximum time spent walking any single root before it is marked truncated.
+
+    .PARAMETER TotalTimeBudgetSeconds
+        Maximum time for the whole run. Each root gets at most an equal share of the time
+        left (and never more than RootTimeBudgetSeconds), so a slow profile cannot starve the
+        roots measured after it. The default fits RMM script runners with a 300 second limit.
 
     .PARAMETER OutFile
         Also write the JSON to this path. Without it, JSON goes to the output stream only.
@@ -55,8 +65,14 @@ param
     [ValidateRange(1, 6)]
     [int]$MaxDepth = 3,
 
+    [ValidateRange(0, 1099511627776)]
+    [int64]$MinRowBytes = 1MB,
+
     [ValidateRange(5, 3600)]
     [int]$RootTimeBudgetSeconds = 120,
+
+    [ValidateRange(30, 36000)]
+    [int]$TotalTimeBudgetSeconds = 240,
 
     [string]$OutFile
 )
@@ -64,8 +80,11 @@ param
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-$script:ProbeVersion = '1.0.0'
+$script:ProbeVersion = '1.1.0'
 $script:Now = [datetime]::UtcNow
+$script:Deadline = $script:Now.AddSeconds($TotalTimeBudgetSeconds)
+# Set once the number of roots is known; each walk takes a fair share of the time left.
+$script:RootsRemaining = 1
 
 # Process names (without .exe) whose owners matter for the per-profile process guard.
 $script:ProcessPatterns = @(
@@ -360,6 +379,10 @@ function Measure-ProbeTree
         [string[]]$Patterns = @()
     )
 
+    # Every planned root consumes its slot, present or not, so later shares stay fair.
+    $share = ([math]::Max(0.0, ($script:Deadline - [datetime]::UtcNow).TotalSeconds)) / [math]::Max(1, $script:RootsRemaining)
+    $script:RootsRemaining = [math]::Max(1, $script:RootsRemaining - 1)
+
     if (-not $Path) { return $null }
 
     $root = New-Object System.IO.DirectoryInfo $Path
@@ -368,14 +391,21 @@ function Measure-ProbeTree
     $token = ConvertTo-ProbeToken -Path $root.FullName -Map $Map
     if (($root.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)
     {
-        return [pscustomobject]@{ Root = $token; IsReparsePoint = $true; Rows = @() }
+        return [pscustomobject]@{ Root = $token; IsReparsePoint = $true; BudgetSeconds = 0; ElapsedSeconds = 0; Rows = @() }
     }
 
-    $deadline = [datetime]::UtcNow.AddSeconds($RootTimeBudgetSeconds)
-    $walked = Invoke-ProbeWalk -Root $root -RowDepth $RowDepth -DeadlineUtc $deadline -Patterns $Patterns
+    $budget = [math]::Min([double]$RootTimeBudgetSeconds, $share)
+    $started = [datetime]::UtcNow
+    $walked = Invoke-ProbeWalk -Root $root -RowDepth $RowDepth -DeadlineUtc ($started.AddSeconds($budget)) -Patterns $Patterns
+    $folded = 0
     $rows = @(
         foreach ($row in $walked)
         {
+            if ($row[1] -gt 1 -and $row[2].Bytes -lt $MinRowBytes)
+            {
+                $folded++
+                continue
+            }
             ConvertTo-ProbeRecord -Stat $row[2] -Path (ConvertTo-ProbeToken -Path $row[0] -Map $Map) -Depth $row[1]
         }
     )
@@ -383,6 +413,9 @@ function Measure-ProbeTree
     return [pscustomobject]@{
         Root           = $token
         IsReparsePoint = $false
+        BudgetSeconds  = [math]::Round($budget, 1)
+        ElapsedSeconds = [math]::Round(([datetime]::UtcNow - $started).TotalSeconds, 1)
+        FoldedRows     = $folded
         Rows           = @($rows | Sort-Object -Property Path)
     }
 }
@@ -436,6 +469,12 @@ function Get-ProbeMachine
         OS                          = $osCaption
         OSBuild                     = $osBuild
         PowerShell                  = $PSVersionTable.PSVersion.ToString()
+        # A 32-bit host on 64-bit Windows sees WOW6432Node and SysWOW64, not the real values.
+        Process64Bit                = [Environment]::Is64BitProcess
+        OS64Bit                     = [Environment]::Is64BitOperatingSystem
+        RootTimeBudgetSeconds       = $RootTimeBudgetSeconds
+        TotalTimeBudgetSeconds      = $TotalTimeBudgetSeconds
+        MinRowBytes                 = $MinRowBytes
         RunAsSystem                 = $identity.IsSystem
         Elevated                    = $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
         NtfsDisableLastAccessUpdate = $lastAccessRaw
@@ -541,7 +580,13 @@ function Get-ProbeProcess
     param ([object[]]$Profiles)
 
     $aliasBySid = @{}
-    foreach ($userProfile in $Profiles) { $aliasBySid[$userProfile.Sid] = $userProfile.Alias }
+    $mapBySid = @{}
+    foreach ($userProfile in $Profiles)
+    {
+        $aliasBySid[$userProfile.Sid] = $userProfile.Alias
+        $mapBySid[$userProfile.Sid] = Get-ProbeProfileMap -ProfilePath $userProfile.Path
+    }
+    $machineMap = Get-ProbeMachineMap
 
     $processes = @()
     try { $processes = @(Get-CimInstance -ClassName Win32_Process) } catch { return }
@@ -568,13 +613,20 @@ function Get-ProbeProcess
         }
 
         $owner = 'unknown'
-        if ($ownerSid -and $aliasBySid.ContainsKey($ownerSid)) { $owner = $aliasBySid[$ownerSid] }
+        $map = $machineMap
+        if ($ownerSid -and $aliasBySid.ContainsKey($ownerSid))
+        {
+            $owner = $aliasBySid[$ownerSid]
+            # An add-in or updater can run from the owner's profile; keep the user name out.
+            $map = $mapBySid[$ownerSid]
+        }
         elseif ($ownerSid) { $owner = $ownerSid }
 
         [pscustomobject][ordered]@{
             Name           = [string]$process.Name
-            ExecutablePath = ConvertTo-ProbeToken -Path ([string]$process.ExecutablePath) -Map (Get-ProbeMachineMap)
+            ExecutablePath = ConvertTo-ProbeToken -Path ([string]$process.ExecutablePath) -Map $map
             Owner          = $owner
+            SessionId      = $process.SessionId
         }
     }
 }
@@ -607,13 +659,26 @@ function Get-ProbeRevitJournal
         $classes = [ordered]@{}
         $shapes = @{}
         $sizes = New-Object 'System.Collections.Generic.List[int64]'
+        # Session numbers show pruning: a range far wider than the file count means
+        # something (Revit's journal shelf or a cleanup tool) removed journals.
+        $numberMin = $null
+        $numberMax = $null
+        $journalAges = [ordered]@{ Under1d = 0; From1to7d = 0; From7to30d = 0; From30to90d = 0; Over90d = 0 }
         $files = @()
         try { $files = @($dir.GetFiles()) } catch { $files = @() }
 
         foreach ($file in $files)
         {
             $class = 'Other'
-            if ($file.Name -match '^journal\.\d+\.txt$') { $class = 'Journal'; $sizes.Add([int64]$file.Length) }
+            if ($file.Name -match '^journal\.(\d+)\.txt$')
+            {
+                $class = 'Journal'
+                $sizes.Add([int64]$file.Length)
+                $number = [int64]$Matches[1]
+                if ($null -eq $numberMin -or $number -lt $numberMin) { $numberMin = $number }
+                if ($null -eq $numberMax -or $number -gt $numberMax) { $numberMax = $number }
+                $journalAges[(Get-ProbeAgeBucket -StampUtc $file.LastWriteTimeUtc)]++
+            }
             elseif ($file.Name -match '\.dmp$') { $class = 'Dump' }
             elseif ($file.Name -match 'worker') { $class = 'WorkerLog' }
 
@@ -656,6 +721,9 @@ function Get-ProbeRevitJournal
             JournalBytesMin = if ($sorted.Count -gt 0) { $sorted[0] } else { $null }
             JournalBytesMedian = $median
             JournalBytesMax = if ($sorted.Count -gt 0) { $sorted[-1] } else { $null }
+            JournalNumberMin = $numberMin
+            JournalNumberMax = $numberMax
+            JournalAgeCounts = [pscustomobject]$journalAges
             Subdirectories  = $subdirs
         }
     }
@@ -694,6 +762,29 @@ function Get-ProbeRevitIni
     }
 }
 
+function Get-ProbeRegistryValue
+{
+    # Named values of one key, tokenized; absent key or value is reported as absent.
+    param ([string]$Path, [string[]]$Names, [object[]]$Map)
+
+    $values = [ordered]@{ Key = $Path; Exists = $false }
+    if (-not (Test-Path -LiteralPath $Path)) { return [pscustomobject]$values }
+
+    $values.Exists = $true
+    $item = $null
+    try { $item = Get-ItemProperty -LiteralPath $Path } catch { $item = $null }
+    foreach ($name in $Names)
+    {
+        $value = $null
+        if ($item -and ($item.PSObject.Properties.Name -contains $name))
+        {
+            $value = ConvertTo-ProbeToken -Path ([string]$item.$name) -Map $Map
+        }
+        $values[$name] = $value
+    }
+    return [pscustomobject]$values
+}
+
 function Get-ProbeProfileFootprint
 {
     param ([pscustomobject]$UserProfile)
@@ -719,6 +810,18 @@ function Get-ProbeProfileFootprint
         }
     )
 
+    # Per-user settings that move or cap Autodesk data; readable only for loaded hives.
+    $userSettings = @()
+    if ($UserProfile.Loaded)
+    {
+        $hive = 'Registry::HKEY_USERS\{0}\SOFTWARE\Autodesk' -f $UserProfile.Sid
+        $userSettings = @(
+            Get-ProbeRegistryValue -Path ($hive + '\Desktop Connector Advanced Settings') -Names 'WorkspaceLocation' -Map $map
+            Get-ProbeRegistryValue -Path ($hive + '\SendMiniDmp\Settings') -Names 'MaxRetainedCount' -Map $map
+        )
+        foreach ($setting in $userSettings) { $setting.Key = $setting.Key -replace '^Registry::HKEY_USERS\\[^\\]+', 'HKCU' }
+    }
+
     return [pscustomobject][ordered]@{
         Alias           = $UserProfile.Alias
         Exists          = $UserProfile.Exists
@@ -726,8 +829,10 @@ function Get-ProbeProfileFootprint
         LocalAutodesk   = Measure-ProbeTree -Path (Join-Path $local 'Autodesk') -RowDepth $MaxDepth -Map $map -Patterns $script:TempPatterns
         RoamingAutodesk = Measure-ProbeTree -Path (Join-Path $roaming 'Autodesk') -RowDepth $MaxDepth -Map $map -Patterns $script:TempPatterns
         Temp            = Measure-ProbeTree -Path $temp -RowDepth 1 -Map $map -Patterns $script:TempPatterns
+        CrashDumps      = Measure-ProbeTree -Path (Join-Path $local 'CrashDumps') -RowDepth 0 -Map $map -Patterns $script:TempPatterns
         RevitJournals   = @(Get-ProbeRevitJournal -LocalAppData $local -Map $map)
         RevitIni        = @(Get-ProbeRevitIni -Paths $revitIni -Map $map)
+        UserSettings    = $userSettings
         UserDataFolders = $userData
     }
 }
@@ -765,6 +870,9 @@ function Get-ProbeLegacy
 $machineMap = Get-ProbeMachineMap
 $profiles = @(Get-ProbeProfile)
 
+# Four trees per existing profile plus three machine-wide trees share the time budget.
+$script:RootsRemaining = (4 * @($profiles | Where-Object { $_.Exists }).Count) + 3
+
 Write-Verbose ('Measuring {0} profile(s).' -f $profiles.Count)
 $profileResults = @(
     foreach ($userProfile in $profiles)
@@ -778,23 +886,60 @@ $profileResults = @(
 Write-Verbose 'Measuring machine-wide roots.'
 $autodeskRoot = Join-Path $env:SystemDrive 'Autodesk'
 
+# Seed Revit.ini files hold the defaults a profile inherits when its own ini omits a key.
+$seedIni = @(
+    Get-ChildItem -Path (Join-Path $env:ProgramData 'Autodesk') -Filter 'RVT *' -Directory -Force -ErrorAction SilentlyContinue |
+        ForEach-Object { Join-Path $_.FullName 'UserDataCache\Revit.ini' }
+)
+
 $result = [pscustomobject][ordered]@{
-    SchemaVersion     = 1
+    SchemaVersion     = 2
     ProbeVersion      = $script:ProbeVersion
     CollectedAtUtc    = Format-ProbeTime $script:Now
+    DurationSeconds   = $null
     Machine           = Get-ProbeMachine
     Profiles          = @($profiles | ForEach-Object { [pscustomobject]@{ Alias = $_.Alias; Sid = $_.Sid; Exists = $_.Exists; Loaded = $_.Loaded } })
     InstalledProducts = @(Get-ProbeInstalledProduct | Sort-Object -Property DisplayName)
     AutoCadReleases   = @(Get-ProbeAutoCadRelease)
     Processes         = @(Get-ProbeProcess -Profiles $profiles)
+    RevitIniSeed      = @(Get-ProbeRevitIni -Paths $seedIni -Map $machineMap)
+    MachineSettings   = @(
+        Get-ProbeRegistryValue -Path 'HKLM:\SOFTWARE\Autodesk\Desktop Connector Advanced Settings' -Names 'WorkspaceLocation' -Map $machineMap
+    )
     ProgramDataAutodesk = Measure-ProbeTree -Path (Join-Path $env:ProgramData 'Autodesk') -RowDepth $MaxDepth -Map $machineMap -Patterns $script:TempPatterns
     SystemDriveAutodesk = Measure-ProbeTree -Path $autodeskRoot -RowDepth 2 -Map $machineMap -Patterns $script:TempPatterns
     WindowsTemp       = Measure-ProbeTree -Path (Join-Path $env:SystemRoot 'Temp') -RowDepth 1 -Map $machineMap -Patterns $script:TempPatterns
     ProfileFootprints = $profileResults
     Legacy            = Get-ProbeLegacy
+    Privacy           = $null
 }
+$result.DurationSeconds = [math]::Round(([datetime]::UtcNow - $script:Now).TotalSeconds, 1)
 
-$json = $result | ConvertTo-Json -Depth 12
+# Compressed: indentation was three quarters of the bytes under Windows PowerShell 5.1.
+$json = $result | ConvertTo-Json -Depth 12 -Compress
+
+# Folder names the probe walks (identity caches, add-in settings, crash reports) can carry a
+# user name that path tokenizing cannot see. Replace every profile's folder name, and its
+# part before a domain suffix (name.DOMAIN), wherever it stands alone.
+$names = @(
+    foreach ($userProfile in $profiles)
+    {
+        $leaf = Split-Path -Path $userProfile.Path -Leaf
+        foreach ($candidate in @($leaf, ($leaf -split '\.')[0]))
+        {
+            if ($candidate.Length -ge 3) { [pscustomobject]@{ Name = $candidate; Alias = $userProfile.Alias } }
+        }
+    }
+)
+$replacements = 0
+foreach ($entry in @($names | Sort-Object -Property { $_.Name.Length } -Descending))
+{
+    $pattern = '(?i)(?<![A-Za-z0-9])' + [regex]::Escape($entry.Name) + '(?![A-Za-z0-9])'
+    $replacements += [regex]::Matches($json, $pattern).Count
+    $json = [regex]::Replace($json, $pattern, ('<{0}>' -f $entry.Alias))
+}
+$privacy = '"Privacy": {{ "ProfileNamesChecked": {0}, "Replacements": {1} }}' -f $names.Count, $replacements
+$json = [regex]::Replace($json, '"Privacy":\s*null', $privacy)
 
 if ($OutFile)
 {
