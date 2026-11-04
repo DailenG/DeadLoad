@@ -1,0 +1,58 @@
+{
+  "$comment":"SAMPLE DATA: copy of an example in docs/design/ENGINE-UI-CONTRACT.md, for the --render-samples harness and the self-test; not real data.",
+  "schemaVersion": 1,
+  "product": "DeadLoad",
+  "version": "0.1.0",
+  "cleanupId": "20261104T162741Z-e2ce4fba",
+  "analysisId": "20261104T162738Z-8a94343b",
+  "startUtc": "2026-11-04T16:27:41.5817790Z",
+  "endUtc": "2026-11-04T16:27:42.6518816Z",
+  "result": "Partial",
+  "reason": null,
+  "categories": [
+    "user.temp",
+    "autodesk.cer"
+  ],
+  "estimatedBytes": 6299648,
+  "freedBytes": 4726784,
+  "deletedCount": 2,
+  "skippedCount": 2,
+  "failedCount": 0,
+  "volume": {
+    "drive": "C:\\",
+    "freeBytesBefore": 44023414784,
+    "freeBytesAfter": 44023414784
+  },
+  "deleted": [
+    {
+      "category": "autodesk.cer",
+      "path": "C:\\Users\\alice\\AppData\\Local\\Autodesk\\CER\\6e9a41c",
+      "kind": "Folder",
+      "bytes": 1581056
+    },
+    {
+      "category": "user.temp",
+      "path": "C:\\Users\\alice\\AppData\\Local\\Temp\\{4B1E}\\payload.cab",
+      "kind": "File",
+      "bytes": 3145728
+    }
+  ],
+  "skipped": [
+    {
+      "category": "user.temp",
+      "path": "C:\\Users\\alice\\AppData\\Local\\Temp\\export-preview.tmp",
+      "kind": "File",
+      "bytes": 524288,
+      "reason": "MinAgeHours",
+      "reasonText": "Used too recently."
+    },
+    {
+      "category": "user.temp",
+      "path": "C:\\Users\\alice\\AppData\\Local\\Temp\\setup-7f3c.log",
+      "kind": "File",
+      "bytes": 1048576,
+      "reason": "Locked",
+      "reasonText": "In use by a program."
+    }
+  ]
+}

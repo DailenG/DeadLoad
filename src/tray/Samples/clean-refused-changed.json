@@ -1,0 +1,1 @@
+{"$comment":"SAMPLE DATA: copy of an example in docs/design/ENGINE-UI-CONTRACT.md, for the --render-samples harness and the self-test; not real data.","Action":"Clean","Result":"Refused","Message":"Nothing was deleted: The analysis changed since it was reviewed; run Analyze again.","Path":null,"FreedBytes":0,"DeletedCount":0,"SkippedCount":0}

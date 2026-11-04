@@ -1,0 +1,221 @@
+{
+  "$comment":"SAMPLE DATA: copy of an example in docs/design/ENGINE-UI-CONTRACT.md, for the --render-samples harness and the self-test; not real data.",
+  "schemaVersion": 1,
+  "product": "DeadLoad",
+  "version": "0.1.0",
+  "analysisId": "20261104T162738Z-8a94343b",
+  "createdUtc": "2026-11-04T16:27:40.9493410Z",
+  "result": "Success",
+  "reason": null,
+  "reportOnly": false,
+  "volume": {
+    "drive": "C:\\",
+    "sizeBytes": 511101235200,
+    "freeBytes": 44023414784
+  },
+  "totals": {
+    "itemCount": 5,
+    "estimatedBytes": 8396800,
+    "selectedItemCount": 4,
+    "selectedBytes": 6299648
+  },
+  "categories": [
+    {
+      "id": "revit.journals",
+      "displayName": "Revit journals",
+      "description": "Session logs Revit writes every time it runs. Support uses them to diagnose problems, and Revit may save backup copies of models beside them.",
+      "risk": "Restricted",
+      "riskText": "Restricted: never offered in the user's cleanup review; only the scheduled runs act on it, as policy configures.",
+      "available": false,
+      "unavailableReason": "Restricted",
+      "unavailableText": "Only the scheduled maintenance can clean this category.",
+      "defaultSelected": false,
+      "ageDays": null,
+      "ageBasis": null,
+      "itemCount": 0,
+      "estimatedBytes": 0,
+      "guardedSkipped": null,
+      "items": []
+    },
+    {
+      "id": "revit.journals.archive",
+      "displayName": "Revit journal archives",
+      "description": "Monthly zip archives of compressed Revit journals, kept as support records.",
+      "risk": "Restricted",
+      "riskText": "Restricted: never offered in the user's cleanup review; only the scheduled runs act on it, as policy configures.",
+      "available": false,
+      "unavailableReason": "Restricted",
+      "unavailableText": "Only the scheduled maintenance can clean this category.",
+      "defaultSelected": false,
+      "ageDays": null,
+      "ageBasis": null,
+      "itemCount": 0,
+      "estimatedBytes": 0,
+      "guardedSkipped": null,
+      "items": []
+    },
+    {
+      "id": "revit.webcache",
+      "displayName": "Revit web cache",
+      "description": "Browser cache of the Revit sign-in, start and help pages. Revit rebuilds it, so pages may load slower the next time.",
+      "risk": "Review",
+      "riskText": "Review: offered but not selected in the user's cleanup review; removing them can cause reprocessing or a download.",
+      "available": true,
+      "unavailableReason": null,
+      "unavailableText": null,
+      "defaultSelected": false,
+      "ageDays": 14,
+      "ageBasis": "Newest",
+      "itemCount": 1,
+      "estimatedBytes": 2097152,
+      "guardedSkipped": null,
+      "items": [
+        {
+          "path": "C:\\Users\\alice\\AppData\\Local\\Autodesk\\Revit\\Autodesk Revit 2026\\WebBrowserControl\\EBWebView\\Default\\Cache\\Cache_Data\\data_1",
+          "kind": "File",
+          "bytes": 2097152,
+          "lastWriteUtc": "2026-10-15T16:27:37.4523288Z",
+          "reason": "AgeDays",
+          "reasonText": "Not used in the last 14 days.",
+          "fingerprint": "2097152:639276784574523288"
+        }
+      ]
+    },
+    {
+      "id": "revit.paccache",
+      "displayName": "Revit content cache",
+      "description": "Content Revit downloaded and keeps locally (PacCache). Revit downloads it again when it is needed.",
+      "risk": "Review",
+      "riskText": "Review: offered but not selected in the user's cleanup review; removing them can cause reprocessing or a download.",
+      "available": true,
+      "unavailableReason": null,
+      "unavailableText": null,
+      "defaultSelected": false,
+      "ageDays": 7,
+      "ageBasis": "Newest",
+      "itemCount": 0,
+      "estimatedBytes": 0,
+      "guardedSkipped": null,
+      "items": []
+    },
+    {
+      "id": "revit.ini.journalshelf",
+      "displayName": "Revit journal retention setting",
+      "description": "Raises how long Revit itself keeps journals (Revit.ini). A setting change, not a file cleanup.",
+      "risk": "Restricted",
+      "riskText": "Restricted: never offered in the user's cleanup review; only the scheduled runs act on it, as policy configures.",
+      "available": false,
+      "unavailableReason": "Restricted",
+      "unavailableText": "Only the scheduled maintenance can clean this category.",
+      "defaultSelected": false,
+      "ageDays": null,
+      "ageBasis": null,
+      "itemCount": 0,
+      "estimatedBytes": 0,
+      "guardedSkipped": null,
+      "items": []
+    },
+    {
+      "id": "autodesk.cer",
+      "displayName": "Autodesk crash reports",
+      "description": "Reports the Autodesk crash reporter kept after a program closed unexpectedly. The newest reports are kept.",
+      "risk": "Routine",
+      "riskText": "Routine: offered and selected by default in the user's cleanup review; files that programs recreate or no longer need.",
+      "available": true,
+      "unavailableReason": null,
+      "unavailableText": null,
+      "defaultSelected": true,
+      "ageDays": 30,
+      "ageBasis": "Newest",
+      "itemCount": 1,
+      "estimatedBytes": 1581056,
+      "guardedSkipped": null,
+      "items": [
+        {
+          "path": "C:\\Users\\alice\\AppData\\Local\\Autodesk\\CER\\6e9a41c",
+          "kind": "Folder",
+          "bytes": 1581056,
+          "lastWriteUtc": "2026-09-20T16:27:37.6092186Z",
+          "reason": "AgeDays",
+          "reasonText": "Not used in the last 30 days.",
+          "fingerprint": "1581056:639255184576092186",
+          "fileCount": 2,
+          "files": [
+            {
+              "path": "C:\\Users\\alice\\AppData\\Local\\Autodesk\\CER\\6e9a41c\\cer.log",
+              "bytes": 8192,
+              "fingerprint": "8192:639255184576077036"
+            },
+            {
+              "path": "C:\\Users\\alice\\AppData\\Local\\Autodesk\\CER\\6e9a41c\\report.dmp",
+              "bytes": 1572864,
+              "fingerprint": "1572864:639255184576040001"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "autodesk.installlogs",
+      "displayName": "Autodesk installer logs",
+      "description": "Logs written while Autodesk products were installed or updated. The newest logs are kept.",
+      "risk": "Routine",
+      "riskText": "Routine: offered and selected by default in the user's cleanup review; files that programs recreate or no longer need.",
+      "available": true,
+      "unavailableReason": null,
+      "unavailableText": null,
+      "defaultSelected": true,
+      "ageDays": 90,
+      "ageBasis": "Modified",
+      "itemCount": 0,
+      "estimatedBytes": 0,
+      "guardedSkipped": null,
+      "items": []
+    },
+    {
+      "id": "user.temp",
+      "displayName": "Temporary files",
+      "description": "Files programs left in the temp folder. Files of a Revit or AutoCAD session that is still running are kept.",
+      "risk": "Routine",
+      "riskText": "Routine: offered and selected by default in the user's cleanup review; files that programs recreate or no longer need.",
+      "available": true,
+      "unavailableReason": null,
+      "unavailableText": null,
+      "defaultSelected": true,
+      "ageDays": 7,
+      "ageBasis": "Newest",
+      "itemCount": 3,
+      "estimatedBytes": 4718592,
+      "guardedSkipped": null,
+      "items": [
+        {
+          "path": "C:\\Users\\alice\\AppData\\Local\\Temp\\{4B1E}\\payload.cab",
+          "kind": "File",
+          "bytes": 3145728,
+          "lastWriteUtc": "2026-10-05T16:27:37.4376994Z",
+          "reason": "AgeDays",
+          "reasonText": "Not used in the last 7 days.",
+          "fingerprint": "3145728:639268144574376994"
+        },
+        {
+          "path": "C:\\Users\\alice\\AppData\\Local\\Temp\\setup-7f3c.log",
+          "kind": "File",
+          "bytes": 1048576,
+          "lastWriteUtc": "2026-10-14T16:27:37.4105749Z",
+          "reason": "AgeDays",
+          "reasonText": "Not used in the last 7 days.",
+          "fingerprint": "1048576:639275920574105749"
+        },
+        {
+          "path": "C:\\Users\\alice\\AppData\\Local\\Temp\\export-preview.tmp",
+          "kind": "File",
+          "bytes": 524288,
+          "lastWriteUtc": "2026-10-23T16:27:37.4418833Z",
+          "reason": "AgeDays",
+          "reasonText": "Not used in the last 7 days.",
+          "fingerprint": "524288:639283696574418833"
+        }
+      ]
+    }
+  ]
+}

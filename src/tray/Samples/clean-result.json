@@ -1,0 +1,1 @@
+{"$comment":"SAMPLE DATA: copy of an example in docs/design/ENGINE-UI-CONTRACT.md, for the --render-samples harness and the self-test; not real data.","Action":"Clean","Result":"Partial","Message":"Recovered 4.5 MB; 2 item(s) were skipped.","Path":"C:\\Users\\alice\\AppData\\Local\\DeadLoad\\last-cleanup.json","FreedBytes":4726784,"DeletedCount":2,"SkippedCount":2}

@@ -1,0 +1,24 @@
+{
+  "$comment": "SAMPLE DATA: an invented configuration.json in the shape -Action Configuration writes (Get-DeadLoadConfiguration -Trace), for the --render-samples harness and the self-test; not real data.",
+  "schemaVersion": 1,
+  "product": "DeadLoad",
+  "engineVersion": "0.1.0",
+  "createdUtc": "2026-11-04T16:30:00.0000000Z",
+  "settings": [
+    { "name": "Enabled", "value": "1", "source": "Default", "reason": null },
+    { "name": "ReportOnly", "value": "0", "source": "Policy", "reason": null },
+    { "name": "TimeBudgetMinutes", "value": "20", "source": "Default", "reason": null },
+    { "name": "MaxItemsPerRun", "value": "100000", "source": "Default", "reason": null },
+    { "name": "LogRetentionDays", "value": "90", "source": "Local", "reason": null },
+    { "name": "Pressure\\FloorPercent", "value": "5", "source": "Default", "reason": null },
+    { "name": "Pressure\\FloorGB", "value": "30", "source": "Policy", "reason": null },
+    { "name": "Schedule\\MaintenanceTime", "value": "02:00", "source": "Policy", "reason": null },
+    { "name": "Tray\\AllowCleanTemp", "value": "1", "source": "Default", "reason": null },
+    { "name": "Tray\\CleanTempMinAgeDays", "value": "1", "source": "Default", "reason": null },
+    { "name": "Tray\\SupportShare", "value": "", "source": "Default", "reason": null },
+    { "name": "Categories\\user.temp\\AgeDays", "value": "7", "source": "Default", "reason": null },
+    { "name": "Categories\\revit.journals\\AgeDays", "value": "30", "source": "Policy", "reason": null },
+    { "name": "Categories\\revit.webcache\\Enabled", "value": "1", "source": "Default", "reason": null },
+    { "name": "Pressure\\TargetGB", "value": "900000", "source": "Rejected:Policy", "reason": "above maximum 100000" }
+  ]
+}

@@ -19,12 +19,20 @@ namespace DeadLoad.Tray
         [STAThread]
         private static int Main(string[] args)
         {
-            foreach (string arg in args)
+            for (int i = 0; i < args.Length; i++)
             {
+                string arg = args[i];
                 if (string.Equals(arg, "--self-test", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(arg, "/self-test", StringComparison.OrdinalIgnoreCase))
                 {
                     return SelfTest();
+                }
+                // Hidden, for design review: renders every view from embedded samples to PNGs.
+                // It never runs Analyze or Clean and reads no report of this machine.
+                if (string.Equals(arg, "--render-samples", StringComparison.OrdinalIgnoreCase))
+                {
+                    string outDir = i + 1 < args.Length ? args[i + 1] : Path.Combine(Environment.CurrentDirectory, "ui-render");
+                    return RenderSamples(outDir);
                 }
             }
 
@@ -48,6 +56,27 @@ namespace DeadLoad.Tray
                 mutex.ReleaseMutex();
             }
             return 0;
+        }
+
+        private static int RenderSamples(string outDir)
+        {
+            if (!Console.IsOutputRedirected) { AttachConsole(AttachParentProcess); }
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
+            try
+            {
+                int code = DeadLoad.Tray.Ui.RenderHarness.Run(Path.GetFullPath(outDir));
+                Console.Out.WriteLine("RenderSamples=OK " + Path.GetFullPath(outDir));
+                Console.Out.Flush();
+                return code;
+            }
+            catch (Exception ex)
+            {
+                Console.Out.WriteLine("RenderSamples=FAILED " + ex);
+                Console.Out.Flush();
+                return 1;
+            }
         }
 
         /// <summary>
@@ -152,6 +181,78 @@ namespace DeadLoad.Tray
             if (result.Result != "Success" || result.Path != "C:\\Users\\x\\Desktop\\b\u00e9.zip" || !result.Succeeded)
             {
                 return "FAILED user action sample";
+            }
+            return WindowParserCheck();
+        }
+
+        /// <summary>
+        /// The window's contracts (docs/design/ENGINE-UI-CONTRACT.md): the embedded copies of its
+        /// examples, plus the Configuration action's shape, through the window's parsers.
+        /// </summary>
+        private static string WindowParserCheck()
+        {
+            try
+            {
+                var analysis = Ui.AnalysisDocument.Parse(Ui.Samples.Read("analysis.json"));
+                Ui.AnalysisCategory temp = analysis.Find("user.temp");
+                Ui.AnalysisCategory cer = analysis.Find("autodesk.cer");
+                Ui.AnalysisCategory journals = analysis.Find("revit.journals");
+                if (analysis.AnalysisId != "20261104T162738Z-8a94343b" || analysis.Categories.Count != 8 || analysis.ItemCount != 5 ||
+                    analysis.EstimatedBytes != 8396800 || analysis.SizeBytes != 511101235200L || temp == null || temp.Items.Count != 3 ||
+                    !temp.DefaultSelected || cer == null || !cer.Items[0].IsFolder || cer.FileCount != 2 ||
+                    journals == null || journals.Available || journals.Selectable || journals.Risk != "Restricted")
+                {
+                    return "FAILED analysis.json sample";
+                }
+
+                UserActionResult analyze = UserActionRunner.Parse("Analyze", Ui.Samples.Read("analyze-result.json"));
+                if (analyze.Result != "Success" || analyze.AnalysisId != analysis.AnalysisId || analyze.EstimatedBytes != 8396800 || analyze.ItemCount != 5)
+                {
+                    return "FAILED Analyze result sample";
+                }
+
+                var cleanup = Ui.CleanupReport.Parse(Ui.Samples.Read("last-cleanup.json"));
+                if (cleanup.Result != "Partial" || cleanup.FreedBytes != 4726784 || cleanup.Deleted.Count != 2 || cleanup.Skipped.Count != 2 ||
+                    cleanup.AnalysisId != analysis.AnalysisId || Ui.Format.SkipReason("Locked", "In use by a program.") != "File in use; skipped.")
+                {
+                    return "FAILED last-cleanup.json sample";
+                }
+
+                UserActionResult clean = UserActionRunner.Parse("Clean", Ui.Samples.Read("clean-result.json"));
+                UserActionResult refused = UserActionRunner.Parse("Clean", Ui.Samples.Read("clean-refused-restricted.json"));
+                UserActionResult disabled = UserActionRunner.Parse("Analyze", Ui.Samples.Read("analyze-disabled.json"));
+                if (!clean.Is("Partial") || clean.FreedBytes != 4726784 || clean.DeletedCount != 2 || clean.SkippedCount != 2 ||
+                    !refused.Is("Refused") || refused.Path != null || !disabled.Is("Disabled") || disabled.Path != null)
+                {
+                    return "FAILED Clean result samples";
+                }
+
+                var configuration = Ui.ConfigurationSnapshot.Parse(Ui.Samples.Read("configuration.json"));
+                Ui.ConfigurationSetting rejected = configuration.Settings[configuration.Settings.Count - 1];
+                UserActionResult configurationResult = UserActionRunner.Parse("Configuration", Ui.Samples.Read("configuration-result.json"));
+                if (configuration.Settings.Count != 15 || configuration.Settings[0].Section != "General" || !rejected.Ignored ||
+                    rejected.Section != "Pressure" || rejected.Setting != "TargetGB" || !rejected.SourceText.StartsWith("Ignored (Policy", StringComparison.Ordinal) ||
+                    !configurationResult.Succeeded || configurationResult.EngineVersion != "0.1.0" || string.IsNullOrEmpty(configurationResult.Path))
+                {
+                    return "FAILED configuration samples";
+                }
+
+                LastRunReport machine = LastRunReport.Parse(Ui.Samples.Read("last-run.json"));
+                if (machine.Categories.Count != 6 || machine.Categories[0].Outcome(false) != "Partly cleaned" || machine.Categories[5].Outcome(false) != "Turned off")
+                {
+                    return "FAILED last-run.json categories sample";
+                }
+
+                string body = Ui.ConfirmCleanDialog.BodyText(5, 2, 6299648);
+                if (!body.StartsWith("You're about to remove 5 selected files across 2 categories (estimated ", StringComparison.Ordinal) ||
+                    !body.EndsWith("). Review the included paths before continuing. Deleted files cannot be restored by DeadLoad.", StringComparison.Ordinal))
+                {
+                    return "FAILED confirmation text";
+                }
+            }
+            catch (Exception ex)
+            {
+                return "FAILED window samples: " + ex.Message;
             }
             return "OK";
         }

@@ -33,6 +33,8 @@ namespace DeadLoad.Tray
         public long? DeletedCount;
         public long? SkippedCount;
         public long? FailedCount;
+        /// <summary>Per category: what the run found and did (ARCHITECTURE section 10).</summary>
+        public readonly List<RunCategory> Categories = new List<RunCategory>();
 
         /// <summary>The report, or null when it is absent or unreadable (the tray just shows "no run yet").</summary>
         public static LastRunReport TryLoad(string path, out string error)
@@ -95,6 +97,26 @@ namespace DeadLoad.Tray
                 report.DeletedCount = Lng(totals, "DeletedCount");
                 report.SkippedCount = Lng(totals, "SkippedCount");
                 report.FailedCount = Lng(totals, "FailedCount");
+            }
+            object categories;
+            if (root.TryGetValue("Categories", out categories) && categories is System.Collections.IEnumerable && !(categories is string))
+            {
+                foreach (object item in (System.Collections.IEnumerable)categories)
+                {
+                    var c = item as Dictionary<string, object>;
+                    if (c == null || Str(c, "Id") == null) { continue; }
+                    report.Categories.Add(new RunCategory
+                    {
+                        Id = Str(c, "Id"),
+                        Enabled = Bool(c, "Enabled") != false,
+                        CandidateCount = Lng(c, "CandidateCount") ?? 0,
+                        CandidateBytes = Lng(c, "CandidateBytes") ?? 0,
+                        ActedCount = Lng(c, "ActedCount") ?? 0,
+                        FreedBytes = Lng(c, "FreedBytes") ?? 0,
+                        SkippedCount = Lng(c, "SkippedCount") ?? 0,
+                        FailedCount = Lng(c, "FailedCount") ?? 0,
+                    });
+                }
             }
             return report;
         }
@@ -194,6 +216,34 @@ namespace DeadLoad.Tray
                 return DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
             }
             return null;
+        }
+    }
+}
+
+namespace DeadLoad.Tray
+{
+    /// <summary>One entry of last-run.json Categories.</summary>
+    internal sealed class RunCategory
+    {
+        public string Id;
+        public bool Enabled;
+        public long CandidateCount;
+        public long CandidateBytes;
+        public long ActedCount;
+        public long FreedBytes;
+        public long SkippedCount;
+        public long FailedCount;
+
+        /// <summary>The outcome in words, for the Details table.</summary>
+        public string Outcome(bool reportOnly)
+        {
+            if (!Enabled) { return "Turned off"; }
+            if (FailedCount > 0) { return ActedCount > 0 ? "Partly failed" : "Failed"; }
+            if (CandidateCount == 0) { return "Nothing to clean"; }
+            if (reportOnly) { return "Report only"; }
+            if (ActedCount > 0 && SkippedCount > 0) { return "Partly cleaned"; }
+            if (ActedCount > 0) { return "Cleaned"; }
+            return SkippedCount > 0 ? "Skipped" : "Nothing done";
         }
     }
 }

@@ -3,14 +3,16 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using DeadLoad.Tray.Ui;
 
 namespace DeadLoad.Tray
 {
     /// <summary>
     /// The tray icon and its menu. Owns the poll timer: every poll re-reads policy (so a GPO
     /// change shows without a sign-out), refreshes the tooltip, and decides on notifications.
+    /// Owns the one DeadLoad window and the requested-run watch the window shares.
     /// </summary>
-    internal sealed class TrayContext : ApplicationContext
+    internal sealed class TrayContext : ApplicationContext, ITrayHost
     {
         private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(10);
         // After "Request a cleanup": look for the finished run this often, for at most this long.
@@ -28,10 +30,11 @@ namespace DeadLoad.Tray
         private readonly ToolStripMenuItem collectLogsItem;
         private readonly ToolStripMenuItem journalsItem;
         private readonly ToolStripMenuItem reportItem;
+        private readonly ToolStripMenuItem openItem;
         private readonly Timer timer;
         private readonly TrayState state;
         private TraySettings settings;
-        private ReportForm reportForm;
+        private MainWindow window;
         private bool cleanTempRunning;
         private bool collectLogsRunning;
 
@@ -41,11 +44,16 @@ namespace DeadLoad.Tray
             state = TrayState.Load(TrayPaths.TrayStateFile);
 
             menu = new ContextMenuStrip();
+            openItem = new ToolStripMenuItem("Open DeadLoad", null, (sender, args) => OpenWindow(PageId.Cleanup));
+            // Bold marks the default item, the one a double-click on the icon runs.
+            openItem.Font = new Font(menu.Font, FontStyle.Bold);
             cleanTempItem = new ToolStripMenuItem("Clean my temp files", null, OnCleanTemp);
             requestCleanupItem = new ToolStripMenuItem("Request a cleanup", null, OnRequestCleanup);
             collectLogsItem = new ToolStripMenuItem("Collect my logs for support", null, OnCollectLogs);
             journalsItem = new ToolStripMenuItem("Open my journals folder", null, OnOpenJournals);
-            reportItem = new ToolStripMenuItem("View last report", null, OnViewReport);
+            reportItem = new ToolStripMenuItem("View last report", null, (sender, args) => OpenWindow(PageId.Details));
+            menu.Items.Add(openItem);
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(cleanTempItem);
             menu.Items.Add(requestCleanupItem);
             menu.Items.Add(collectLogsItem);
@@ -64,7 +72,7 @@ namespace DeadLoad.Tray
                 Text = "DeadLoad",
                 Visible = true,
             };
-            icon.DoubleClick += OnViewReport;
+            icon.DoubleClick += (sender, args) => OpenWindow(PageId.Cleanup);
             icon.BalloonTipShown += (sender, args) => balloonVisible = true;
             icon.BalloonTipClosed += (sender, args) => balloonVisible = false;
             icon.BalloonTipClicked += (sender, args) => balloonVisible = false;
@@ -81,6 +89,19 @@ namespace DeadLoad.Tray
 
         private static Icon LoadIcon()
         {
+            // The embedded ICO gives the frame drawn for the notification area's own size (16, 20
+            // or 24 px by DPI); the exe's associated icon is the 32 px frame shrunk by Windows.
+            try
+            {
+                using (Stream stream = typeof(TrayContext).Assembly.GetManifestResourceStream("DeadLoad.ico"))
+                {
+                    if (stream != null) { return new Icon(stream, SystemInformation.SmallIconSize); }
+                }
+            }
+            catch (Exception)
+            {
+                // Fall through to the exe's own icon.
+            }
             try
             {
                 Icon own = Icon.ExtractAssociatedIcon(typeof(TrayContext).Assembly.Location);
@@ -208,7 +229,36 @@ namespace DeadLoad.Tray
                 string freed = report.FreedBytes.HasValue ? LastRunReport.FormatBytes(report.FreedBytes.Value) : "nothing";
                 Notify("Cleanup finished", "Result: " + report.Result + ". Freed " + freed + ".", ToolTipIcon.Info);
             }
+            if (MachineReportChanged != null) { MachineReportChanged(this, EventArgs.Empty); }
             return true;
+        }
+
+        /// <summary>Raised when last-run.json shows a new run; the window refreshes "This computer".</summary>
+        public event EventHandler MachineReportChanged;
+
+        /// <summary>
+        /// Starts the on-demand task and watches for its report, for the menu and the window
+        /// alike. Null on success, else the message to show.
+        /// </summary>
+        public string RequestCleanup()
+        {
+            string error = TaskStarter.StartOnDemand();
+            if (error == null) { StartWatchingRequestedRun(); }
+            return error;
+        }
+
+        private void OpenWindow(PageId page)
+        {
+            if (window == null || window.IsDisposed)
+            {
+                window = new MainWindow(new LiveBackend(this), null);
+                window.FormClosed += (sender, args) => window = null;
+            }
+            if (page == PageId.Details) { window.Details.UserFirst = false; }
+            window.ShowPage(page);
+            if (!window.Visible) { window.Show(); }
+            if (window.WindowState == FormWindowState.Minimized) { window.WindowState = FormWindowState.Normal; }
+            window.Activate();
         }
 
         private async void OnCleanTemp(object sender, EventArgs e)
@@ -277,12 +327,11 @@ namespace DeadLoad.Tray
 
         private void OnRequestCleanup(object sender, EventArgs e)
         {
-            string error = TaskStarter.StartOnDemand();
+            string error = RequestCleanup();
             if (error == null)
             {
                 Notify("Cleanup requested",
                     "A cleanup has started in the background. You can keep working; you will be told when it finishes.", ToolTipIcon.Info);
-                StartWatchingRequestedRun();
             }
             else
             {
@@ -309,21 +358,6 @@ namespace DeadLoad.Tray
             }
         }
 
-        private void OnViewReport(object sender, EventArgs e)
-        {
-            if (reportForm != null && !reportForm.IsDisposed)
-            {
-                reportForm.Activate();
-                return;
-            }
-            string error;
-            LastRunReport report = LastRunReport.TryLoad(TrayPaths.LastRunReport, out error);
-            reportForm = new ReportForm(report, error);
-            reportForm.FormClosed += (s, args) => reportForm = null;
-            reportForm.Show();
-            reportForm.Activate();
-        }
-
         private void OnExit(object sender, EventArgs e)
         {
             ExitThread();
@@ -334,7 +368,8 @@ namespace DeadLoad.Tray
             timer.Stop();
             // Hide first, or the icon lingers in the notification area until the mouse passes over it.
             icon.Visible = false;
-            if (reportForm != null && !reportForm.IsDisposed) { reportForm.Close(); }
+            // Dispose, not Close: closing a window with a cleanup running only hides it.
+            if (window != null && !window.IsDisposed) { window.Dispose(); }
             base.ExitThreadCore();
         }
 

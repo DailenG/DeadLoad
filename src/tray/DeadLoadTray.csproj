@@ -14,6 +14,8 @@
     <LangVersion>7.3</LangVersion>
     <Nullable>disable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Written by build/New-DeadLoadBrand.ps1; also embedded so the tray can pick its small frame. -->
+    <ApplicationIcon>DeadLoad.ico</ApplicationIcon>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <Product>DeadLoad</Product>
     <AssemblyTitle>DeadLoad tray</AssemblyTitle>
@@ -31,6 +33,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="DeadLoad.ico" LogicalName="DeadLoad.ico" />
+    <!-- Copies of the ENGINE-UI-CONTRACT.md examples (and marked invented samples) for the
+         self-test parser check and the hidden render harness; never read as real data. -->
+    <EmbeddedResource Include="Samples\*.json" LogicalName="Samples.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

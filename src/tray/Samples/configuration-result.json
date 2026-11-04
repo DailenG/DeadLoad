@@ -1,0 +1,1 @@
+{"$comment":"SAMPLE DATA: an invented -Action Configuration stdout line, for the self-test; not real data.","Action":"Configuration","Result":"Success","Message":"14 setting(s) read; 1 value(s) ignored.","Path":"C:\\Users\\sample\\AppData\\Local\\DeadLoad\\configuration.json","EngineVersion":"0.1.0","SettingCount":14,"RejectedCount":1}

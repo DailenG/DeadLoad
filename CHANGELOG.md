@@ -27,6 +27,21 @@
 - Windows Sandbox acceptance run of the install procedure (`tests/Sandbox`).
 - Legacy retirement also drops Chocolatey's record of a Get-FreeSpace package
   (`choco uninstall <id> -n`), so `choco upgrade all` cannot reinstall it.
+- Cleanup review for the DeadLoad window (ARCHITECTURE D22 to D26,
+  `docs/design/ENGINE-UI-CONTRACT.md`): a `Risk` tier (Routine, Review, Restricted), display name
+  and description per category, shown in the ADMX explain text; `Invoke-DeadLoadAnalysis` and
+  `Invoke-DeadLoadCleanup` (user actions `Analyze` and `Clean`, gated by `Tray.AllowCleanTemp`),
+  which delete only the reviewed items a fresh plan still selects and report every skip;
+  `Invoke-DeadLoad -Category` in User mode, `-IncludePlan` and `-ReviewedItem`. Restricted
+  categories never take part in a user-started cleanup, "Clean my temp files" included (D25):
+  `autocad.recovery` is no longer a user-action category.
+- The DeadLoad window in the tray exe (design slice 4, `docs/design/UI-NOTES.md`): Cleanup
+  (Analyze, Review, confirmation, Clean, Complete, and "This computer" with Request a cleanup),
+  Details, History, Settings and About; light, dark and high contrast following Windows; per
+  monitor DPI; keyboard and screen reader names throughout. "Open DeadLoad" is the bold default
+  tray item; "View last report" opens Details (the old report window is gone). New user action
+  `-Action Configuration` (contract section 10) for the read-only Settings page. Hidden
+  `--render-samples <outdir>` renders every view from embedded samples for design review.
 
 ### Fixed
 

@@ -1,0 +1,43 @@
+{
+  "$comment": "SAMPLE DATA: an invented last-run.json in the shape of docs/ARCHITECTURE.md section 10, for the --render-samples harness and the self-test; not real data.",
+  "SchemaVersion": 1,
+  "Product": "DeadLoad",
+  "Version": "0.1.0",
+  "RunId": "20261104T070000Z-1c2d3e4f",
+  "Computer": "SAMPLE-PC",
+  "Mode": "Maintenance",
+  "StartTime": "2026-11-04T07:00:02.0000000Z",
+  "EndTime": "2026-11-04T07:03:41.0000000Z",
+  "DurationSeconds": 219.0,
+  "ReportOnly": false,
+  "WhatIf": false,
+  "Result": "Partial",
+  "Reason": null,
+  "Volume": {
+    "Drive": "C:",
+    "SizeBytes": 511101235200,
+    "FreeBytesBefore": 42734567424,
+    "FreeBytesAfter": 44023414784,
+    "FloorBytes": 32212254720,
+    "TargetReached": true
+  },
+  "Totals": {
+    "FreedBytes": 1288847360,
+    "DeletedCount": 412,
+    "SkippedCount": 6,
+    "FailedCount": 0
+  },
+  "Categories": [
+    { "Id": "windows.temp", "Enabled": true, "Groups": 1, "ScannedCount": 380, "ScannedBytes": 903872512, "ProtectedCount": 12, "CandidateCount": 361, "CandidateBytes": 861929472, "ActedCount": 356, "FreedBytes": 851443712, "SkippedCount": 5, "FailedCount": 0 },
+    { "Id": "user.temp", "Enabled": true, "Groups": 3, "ScannedCount": 120, "ScannedBytes": 402653184, "ProtectedCount": 40, "CandidateCount": 52, "CandidateBytes": 377487360, "ActedCount": 51, "FreedBytes": 376438784, "SkippedCount": 1, "FailedCount": 0 },
+    { "Id": "revit.journals", "Enabled": true, "Groups": 2, "ScannedCount": 64, "ScannedBytes": 157286400, "ProtectedCount": 40, "CandidateCount": 4, "CandidateBytes": 52428800, "ActedCount": 4, "FreedBytes": 52428800, "SkippedCount": 0, "FailedCount": 0 },
+    { "Id": "autodesk.cer", "Enabled": true, "Groups": 1, "ScannedCount": 3, "ScannedBytes": 8536064, "ProtectedCount": 2, "CandidateCount": 1, "CandidateBytes": 8536064, "ActedCount": 1, "FreedBytes": 8536064, "SkippedCount": 0, "FailedCount": 0 },
+    { "Id": "autodesk.installers", "Enabled": true, "Groups": 0, "ScannedCount": 0, "ScannedBytes": 0, "ProtectedCount": 0, "CandidateCount": 0, "CandidateBytes": 0, "ActedCount": 0, "FreedBytes": 0, "SkippedCount": 0, "FailedCount": 0 },
+    { "Id": "revit.oldversions", "Enabled": false, "Groups": 0, "ScannedCount": 0, "ScannedBytes": 0, "ProtectedCount": 0, "CandidateCount": 0, "CandidateBytes": 0, "ActedCount": 0, "FreedBytes": 0, "SkippedCount": 0, "FailedCount": 0 }
+  ],
+  "Skips": [],
+  "Failures": [],
+  "Configuration": [],
+  "Profiles": [],
+  "LogPath": "C:\\ProgramData\\DeadLoad\\logs\\deadload-20261104.log"
+}
