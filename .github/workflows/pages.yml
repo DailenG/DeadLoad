@@ -1,5 +1,7 @@
-# Publishes site/ (the static DeadLoad website and policy generator) to GitHub Pages.
-# Enable Pages once in the repository settings with Source "GitHub Actions".
+# Publishes site/ (the static DeadLoad website and policy generator) to the gh-pages branch, which
+# GitHub Pages serves (Settings > Pages: Deploy from a branch, gh-pages, / root). The Actions
+# artifact deployment was tried first and never received a status from Pages on this repository,
+# so the site is published as a branch: site/ becomes the branch root through git subtree split.
 name: Pages
 
 on:
@@ -12,20 +14,20 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -35,21 +37,7 @@ jobs:
       - name: Test the policy generator
         run: node --test tests/site/*.test.mjs
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload site
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish site/ to gh-pages
+        run: |
+          git subtree split --prefix site -b gh-pages-publish
+          git push --force origin gh-pages-publish:gh-pages
