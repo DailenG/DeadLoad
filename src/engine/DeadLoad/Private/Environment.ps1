@@ -41,16 +41,27 @@ function Get-DLProcessOwner
 {
     <#
         .SYNOPSIS
-            Running processes with their owner SID: Name (no extension), Sid, Path.
+            Running processes: Name (no extension), Path, and the owner Sid for processes whose
+            name matches -OwnerOf (looking up every owner costs a WMI call per process).
     #>
+    param ([string[]]$OwnerOf = @('*'))
+
     $processes = @()
-    try { $processes = @(Get-CimInstance -ClassName Win32_Process -ErrorAction Stop) } catch { return }
+    try { $processes = @(Get-CimInstance -ClassName Win32_Process -ErrorAction Stop -Verbose:$false) } catch { return }
     foreach ($process in $processes)
     {
+        $name = [System.IO.Path]::GetFileNameWithoutExtension([string]$process.Name)
         $sid = $null
-        try { $sid = (Invoke-CimMethod -InputObject $process -MethodName GetOwnerSid -ErrorAction Stop).Sid } catch { $sid = $null }
+        $wanted = $false
+        foreach ($pattern in $OwnerOf) { if ($name -like $pattern) { $wanted = $true; break } }
+        if ($wanted)
+        {
+            # GetOwnerSid is a read, but Invoke-CimMethod honors -WhatIf: without -WhatIf:$false a
+            # what-if run would see no owners and plan as if no guarded process ran.
+            try { $sid = (Invoke-CimMethod -InputObject $process -MethodName GetOwnerSid -ErrorAction Stop -WhatIf:$false -Confirm:$false -Verbose:$false).Sid } catch { $sid = $null }
+        }
         [pscustomobject]@{
-            Name = [System.IO.Path]::GetFileNameWithoutExtension([string]$process.Name)
+            Name = $name
             Sid  = $sid
             Path = [string]$process.ExecutablePath
         }

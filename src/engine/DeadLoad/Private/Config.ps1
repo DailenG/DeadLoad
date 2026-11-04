@@ -1,7 +1,7 @@
 $script:DLRegistryRoots = @{
-    MachinePolicy = 'HKLM:\SOFTWARE\Policies\DeadLoad'
-    UserPolicy    = 'HKCU:\SOFTWARE\Policies\DeadLoad'
-    Local         = 'HKLM:\SOFTWARE\DeadLoad'
+    MachinePolicy = @('LocalMachine', 'SOFTWARE\Policies\DeadLoad')
+    UserPolicy    = @('CurrentUser', 'SOFTWARE\Policies\DeadLoad')
+    Local         = @('LocalMachine', 'SOFTWARE\DeadLoad')
 }
 
 function Get-DLRegistryKeyValues
@@ -10,6 +10,11 @@ function Get-DLRegistryKeyValues
         .SYNOPSIS
             All values of one DeadLoad key as a hashtable (empty when the key is absent).
             SR-8: only HKLM policy, HKCU policy (tray settings) and HKLM local are read.
+
+        .DESCRIPTION
+            Reads through Microsoft.Win32 in the 64-bit view: the registry provider cost about
+            7 seconds for the roughly 50 keys of one configuration read, and a 32-bit host
+            would otherwise be redirected to WOW6432Node and miss every policy.
     #>
     param
     (
@@ -17,15 +22,25 @@ function Get-DLRegistryKeyValues
         [string]$SubKey = ''
     )
 
-    $path = $script:DLRegistryRoots[$Root]
-    if ($SubKey) { $path = Join-Path $path $SubKey }
+    $hive, $path = $script:DLRegistryRoots[$Root]
+    if ($SubKey) { $path = '{0}\{1}' -f $path, $SubKey }
     $values = @{}
-    if (-not (Test-Path -LiteralPath $path)) { return $values }
-    $key = Get-Item -LiteralPath $path -ErrorAction SilentlyContinue
-    if (-not $key) { return $values }
-    foreach ($name in $key.GetValueNames())
+    $base = $null
+    $key = $null
+    try
     {
-        if ($name) { $values[$name] = $key.GetValue($name) }
+        $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::$hive, [Microsoft.Win32.RegistryView]::Registry64)
+        $key = $base.OpenSubKey($path, $false)
+        if (-not $key) { return $values }
+        foreach ($name in $key.GetValueNames())
+        {
+            if ($name) { $values[$name] = $key.GetValue($name) }
+        }
+    }
+    finally
+    {
+        if ($key) { $key.Dispose() }
+        if ($base) { $base.Dispose() }
     }
     return $values
 }

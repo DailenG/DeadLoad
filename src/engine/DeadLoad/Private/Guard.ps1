@@ -18,7 +18,7 @@ function Get-DLGuardState
     $guarded = ConvertTo-DLArray -Value $Run.Config.GuardedProcesses
     $sids = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     $names = New-Object 'System.Collections.Generic.List[string]'
-    foreach ($process in @(Get-DLProcessOwner))
+    foreach ($process in @(Get-DLProcessOwner -OwnerOf $guarded))
     {
         $names.Add([string]$process.Name)
         foreach ($pattern in $guarded)

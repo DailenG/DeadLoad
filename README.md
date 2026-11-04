@@ -11,7 +11,10 @@ scheduled tasks, applies log-management style retention (age, count, size, share
 free-space floor and target), treats Revit journals as records, is configured by Group Policy,
 and gives each user a tray app for self-service.
 
-**Status: design.** No engine code yet. Read in this order:
+**Status: pre-release (0.1.0).** The engine, configuration reader, scheduler and their test
+suites are built; defaults come from measurements on seven workstations
+([docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)). Packaging, the ADMX templates and the tray app are
+in progress; a pilot has not run yet. Read in this order:
 
 1. [PRD.md](PRD.md): what and why.
 2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): decisions, contracts, retention model, safety.
@@ -19,17 +22,37 @@ and gives each user a tray app for self-service.
    or still candidates.
 4. [docs/PLAN.md](docs/PLAN.md): phases and acceptance tests.
 
+## See what it would do
+
+Report-only and `-WhatIf` plan every category and change nothing:
+
+```powershell
+Import-Module .\src\engine\DeadLoad\DeadLoad.psd1
+Invoke-DeadLoad -Mode Maintenance -ReportOnly -DataRoot $env:TEMP\deadload -NoEventLog
+Get-DeadLoadConfiguration -Trace | Where-Object Source -ne 'Default'
+```
+
+Run elevated or as SYSTEM to include every profile. The summary object lists per-category
+counts; the run log (`<DataRoot>\logs`) names the rule behind every item decision.
+
 ## Measure a workstation
 
-The only shipped tool so far is a read-only probe that inventories the Autodesk footprint of a
-machine (sizes, ages, file types, installed products, running processes, Revit.ini journal and
-cache settings). It never writes, deletes or follows reparse points.
+`tools/Measure-AutodeskFootprint.ps1` is a read-only probe that inventories the Autodesk
+footprint of a machine (sizes, ages, file types, installed products, running processes,
+Revit.ini journal and cache settings). It never writes, deletes or follows reparse points, and
+redacts profile folder names from its output.
 
 ```
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\Measure-AutodeskFootprint.ps1 -OutFile C:\Windows\Temp\deadload-probe.json
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\Measure-AutodeskFootprint.ps1 -RootTimeBudgetSeconds 60 -OutFile C:\Windows\Temp\deadload-probe.json
 ```
 
-Run it elevated or as SYSTEM to include every profile.
+## Tests
+
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\Invoke-Tests.ps1
+```
+
+Runs the Pester suite (5.0 or later) under Windows PowerShell 5.1 and PowerShell 7.
 
 ## Credits
 
