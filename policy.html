@@ -83,6 +83,12 @@
               <div id="common-fields" class="fields"></div>
             </fieldset>
 
+            <section class="panel products" id="products-panel" aria-labelledby="products-title">
+              <h2 id="products-title" class="panel-title">Autodesk products</h2>
+              <p class="note">Turn each category on or off and adjust its main limits. These are the same values as under All settings; a value equal to the shipped default is not emitted. Leave a field empty to keep the default.</p>
+              <div id="product-fields"></div>
+            </section>
+
             <fieldset class="panel">
               <legend>Output options</legend>
               <div class="fields">
@@ -103,7 +109,7 @@
 
             <details class="panel all-settings" id="all-settings">
               <summary><span>All settings</span> <span class="note" id="all-count"></span></summary>
-              <p class="note">Every setting the Group Policy templates define, grouped as in the editor. Common settings above are not repeated. Custom targets are a list policy: set them in the editor.</p>
+              <p class="note">Every setting the Group Policy templates define, grouped as in the editor. Common settings above are not repeated; values set under Autodesk products show here too (one value each). Custom targets are a list policy: set them in the editor.</p>
               <div id="all-fields"></div>
             </details>
 

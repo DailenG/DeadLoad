@@ -316,3 +316,134 @@
     border: 2px solid Highlight;
   }
 }
+
+/* ---------------------------------------------------------------- Autodesk products panel */
+.panel-title {
+  margin: 0 0 var(--dl-space-3);
+  color: var(--heading);
+  font-size: var(--dl-size-web-h3);
+  font-weight: var(--dl-weight-semibold);
+}
+
+.product {
+  margin: var(--dl-space-5) 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.product > legend {
+  padding: 0;
+  margin-bottom: var(--dl-space-2);
+  color: var(--dl-color-text-primary);
+  font-size: 17px;
+  font-weight: var(--dl-weight-semibold);
+}
+
+.category {
+  padding: var(--dl-space-3) 0;
+  border-top: var(--dl-border-width) solid var(--dl-color-border);
+}
+
+.category-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--dl-space-2) var(--dl-space-3);
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dl-space-2);
+  min-height: 32px;
+}
+
+.category-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dl-space-3);
+  margin-left: auto;
+}
+
+.switch input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--dl-color-brand-blue);
+  cursor: pointer;
+}
+
+.switch label {
+  color: var(--dl-color-text-primary);
+  font-weight: var(--dl-weight-semibold);
+  cursor: pointer;
+}
+
+.category-default {
+  font-size: 13px;
+  color: var(--dl-color-text-secondary);
+  white-space: nowrap;
+}
+
+.category-desc,
+.category-reason {
+  margin: var(--dl-space-1) 0 0 28px;
+  font-size: 14px;
+}
+
+.category-reason {
+  color: var(--dl-color-text-primary);
+}
+
+.category-warning {
+  margin: var(--dl-space-2) 0 0 28px;
+  padding: var(--dl-space-2) var(--dl-space-3);
+  border-left: 3px solid var(--dl-color-warning);
+  background: var(--tint-warning);
+  color: var(--dl-color-text-primary);
+  font-size: 14px;
+  border-radius: 4px;
+}
+
+.category-warning:empty {
+  display: none;
+}
+
+.category-warning::before {
+  content: "Note: ";
+  font-weight: var(--dl-weight-semibold);
+}
+
+.knobs {
+  margin: var(--dl-space-3) 0 0 28px;
+}
+
+.meaning {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--dl-color-text-secondary);
+}
+
+@media (max-width: 600px) {
+  .category-desc,
+  .category-reason,
+  .category-warning,
+  .knobs {
+    margin-left: 0;
+  }
+}
+
+@media (forced-colors: active) {
+  .category-warning {
+    border: 1px solid CanvasText;
+    border-left-width: 3px;
+  }
+}
+
+/* The hidden attribute wins over display rules such as .fields { display: grid }. */
+[hidden] {
+  display: none !important;
+}
