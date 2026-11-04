@@ -17,3 +17,10 @@
   (`last-run.json`), event log and run log, integrity check of signed data files, support
   bundle export, and the policy > local > default configuration reader with source trace.
 - Pester suite for PLAN phase 1 (tests 1.1 to 1.22) on Windows PowerShell 5.1 and PowerShell 7.
+- Scheduler: `Start-DeadLoad.ps1` task entry point and `Sync-DeadLoadSchedule` (Maintenance,
+  PressureCheck with the low-disk event, OnDemand startable by users), triggers from policy.
+- Group Policy templates `policy/DeadLoad.admx` and `en-US/DeadLoad.adml`, generated from the
+  settings catalog by `build/New-DeadLoadAdmx.ps1`.
+- Tray app `DeadLoadTray.exe` (.NET Framework 4.8) and `Invoke-DeadLoadUserAction.ps1`.
+- Chocolatey package `deadload`, `build/Build.ps1` (build, stage, sign, verify, pack), legacy
+  Get-FreeSpace 1.3.5 retirement, and `docs/OPERATIONS.md`.

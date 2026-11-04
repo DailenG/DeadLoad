@@ -11,10 +11,11 @@ scheduled tasks, applies log-management style retention (age, count, size, share
 free-space floor and target), treats Revit journals as records, is configured by Group Policy,
 and gives each user a tray app for self-service.
 
-**Status: pre-release (0.1.0).** The engine, configuration reader, scheduler and their test
-suites are built; defaults come from measurements on seven workstations
-([docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)). Packaging, the ADMX templates and the tray app are
-in progress; a pilot has not run yet. Read in this order:
+**Status: pre-release (0.1.0).** Engine, Group Policy templates, scheduler, tray app and the
+signed Chocolatey package are built and tested; defaults come from measurements on seven
+workstations ([docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)). Install, upgrade and uninstall have
+not yet run on a test VM, and no pilot has run ([docs/OPERATIONS.md](docs/OPERATIONS.md)).
+Read in this order:
 
 1. [PRD.md](PRD.md): what and why.
 2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): decisions, contracts, retention model, safety.
