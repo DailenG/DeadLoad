@@ -42,6 +42,9 @@
   tray item; "View last report" opens Details (the old report window is gone). New user action
   `-Action Configuration` (contract section 10) for the read-only Settings page. Hidden
   `--render-samples <outdir>` renders every view from embedded samples for design review.
+- Site and README show the real DeadLoad window (render harness screenshots, labeled sample data)
+  instead of the HTML illustration; the site gains a Screenshots section and the README a header
+  with the mark, hero line, screenshot, safety note and install steps.
 
 ### Fixed
 

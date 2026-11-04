@@ -98,9 +98,33 @@ safety section, screenshots (real, from the sandbox), install, footer, policy ge
 | 4 | DeadLoad window: Cleanup (Analyze, Review, Confirm, Clean, Complete), Details, History, Settings, About; dark and high contrast; DPI | Sandbox: standard user flow end to end, screenshots at 100 and 150 percent, keyboard-only pass |
 | 5 | README header and real screenshots; docs (decisions, QA checklist) | Rendered on GitHub once a remote exists |
 
-## 6. Open items for the owner
+## 6. Status (2026-11-04)
 
-- Repository URL (no remote yet): needed for site links, Pages deployment and "View on GitHub".
-- License (D3): the site footer and About page state it.
+All five slices are done.
+
+| # | Slice | Done in |
+|---|---|---|
+| 1 | Brand mark, icon pipeline, ICO in tray and package | `2c28ad4` Add the DeadLoad mark and its reproducible icon pipeline |
+| 2 | Tokens, static site, policy generator, recommended configuration | `3006626` Add the DeadLoad site, policy generator and recommended configuration |
+| 3 | Engine: risk tiers, per-item plan, `-Category`, reviewed-item intersection | `11afc65` Let users analyze, review and clean their own files |
+| 4 | DeadLoad window in the tray app | `321f70b` Add the DeadLoad window to the tray app; on-screen test in Windows Sandbox (Analyze, Review, Clean, Details, History, Settings, About; light and dark) |
+| 5 | README header, real screenshots on the site and in the README | The screenshots are the render harness output (`--render-samples`, sample data) copied to `site/assets/screenshots/`; the hero is the results page cut to the window's default viewport with its status footer |
+
+GitHub Pages: `d3fb994` added an Actions workflow that deployed the site as a Pages artifact, but
+the deployment never got a status; `b8eaa69` publishes `site/` to the `gh-pages` branch instead,
+which serves https://daileng.github.io/DeadLoad/.
+
+Still open (from `UI-NOTES.md` section 5 and its QA checklist):
+
+- A second monitor at another DPI: `WM_DPICHANGED` is handled in code but untried; 150 percent is
+  proven by the render scale only.
+- A real high contrast theme: the high contrast code path was rendered with high contrast off.
+- A Narrator pass: names, roles and states are set but not tried with a screen reader.
+- Dark mode leftovers: the list context menu and the tooltip are drawn by Windows in light colors.
+
+## 7. Open items for the owner
+
+- Resolved: the repository is https://github.com/DailenG/DeadLoad and the license is GPL-3.0
+  (D3); the site, the README and the About page link and state them.
 - Whether the policy generator should also emit a GPO backup that can be imported (more work,
   needs a GPMC machine to verify) or the PowerShell plus `.reg` outputs are enough.

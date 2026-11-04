@@ -40,6 +40,7 @@
         <ul class="nav">
           <li><a href="#features">Features</a></li>
           <li><a href="#how-it-works">How it works</a></li>
+          <li><a href="#screenshots">Screenshots</a></li>
           <li><a href="#safety">Safety</a></li>
           <li><a href="policy.html">Policy generator</a></li>
           <li><a href="https://github.com/DailenG/DeadLoad">GitHub</a></li>
@@ -76,59 +77,12 @@
               <path d="M40 30V50M600 30V50M40 470V490M600 470V490"/>
             </g>
           </svg>
-          <figure class="illustration">
-            <span class="illustration-tag">Illustration</span>
-            <div class="mock">
-              <div class="mock-titlebar">
-                <img src="assets/brand/favicon.svg" alt="" width="16" height="16">
-                <span>DeadLoad</span>
-                <span class="controls" aria-hidden="true">- &#9633; x</span>
-              </div>
-              <div class="mock-body">
-                <div class="mock-nav" aria-hidden="true">
-                  <span class="is-current">Cleanup</span>
-                  <span>Details</span>
-                  <span>History</span>
-                  <span>Settings</span>
-                  <span>About</span>
-                </div>
-                <div class="mock-main">
-                  <span class="mock-title">System Cleanup</span>
-                  <span class="mock-sub">Find and review unnecessary files before removing them.</span>
-                  <div class="mock-metric"><strong>4.2 GB</strong><span>potentially reclaimable (example value)</span></div>
-                  <span class="mock-meta">Estimated from the last analysis. Space actually recovered is shown after cleanup.</span>
-                  <div class="mock-row">
-                    <span class="mock-check is-checked"><svg width="12" height="12" aria-hidden="true"><use href="#i-check"/></svg></span>
-                    <span>Temporary files</span>
-                    <span class="size">2.1 GB</span>
-                    <span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span>
-                  </div>
-                  <div class="mock-row">
-                    <span class="mock-check is-checked"><svg width="12" height="12" aria-hidden="true"><use href="#i-check"/></svg></span>
-                    <span>Autodesk crash reports</span>
-                    <span class="size">0.3 GB</span>
-                    <span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span>
-                  </div>
-                  <div class="mock-row">
-                    <span class="mock-check"></span>
-                    <span>Revit web cache</span>
-                    <span class="size">1.6 GB</span>
-                    <span class="risk risk-review"><svg aria-hidden="true"><use href="#i-eye"/></svg>Review</span>
-                  </div>
-                  <div class="mock-row">
-                    <span class="mock-check is-checked"><svg width="12" height="12" aria-hidden="true"><use href="#i-check"/></svg></span>
-                    <span>Autodesk installer logs</span>
-                    <span class="size">0.2 GB</span>
-                    <span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span>
-                  </div>
-                  <div class="mock-actions" aria-hidden="true">
-                    <span class="secondary">Analyze Again</span>
-                    <span class="primary">Review Cleanup</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <figcaption>Illustration of the planned DeadLoad window, which is in development. Sizes are example values, not measurements.</figcaption>
+          <figure class="shot shot-hero">
+            <picture>
+              <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/hero-dark.png 1000w, assets/screenshots/hero-dark-2x.png 1500w" sizes="(max-width: 1023px) 100vw, 640px">
+              <img src="assets/screenshots/hero-light.png" srcset="assets/screenshots/hero-light.png 1000w, assets/screenshots/hero-light-2x.png 1500w" sizes="(max-width: 1023px) 100vw, 640px" width="1000" height="700" alt="The DeadLoad window on its Cleanup page: 8.0 MB potentially reclaimable, marked Estimated, beside a capacity bar for the local disk, with Analyze Again and Review Cleanup buttons. Below, category rows with checkboxes, sizes, item counts and risk badges: Autodesk crash reports and Temporary files selected as Routine, Revit web cache unselected as Review. The status bar reads Sample data.">
+            </picture>
+            <figcaption>The DeadLoad window after Analyze Storage (sample data).</figcaption>
           </figure>
         </div>
       </div>
@@ -171,32 +125,77 @@
         <div class="section-intro">
           <span class="eyebrow">How it works</span>
           <h2 id="how-title">Analyze, review, clean.</h2>
-          <p>DeadLoad runs unattended as SYSTEM from its own scheduled tasks, so no one has to remember to run it. You decide how much it may do before it does anything.</p>
+          <p>DeadLoad runs unattended as SYSTEM from its own scheduled tasks, so no one has to remember to run it. You decide how much it may do before it does anything. Users analyze, review and clean their own files in the DeadLoad window, without admin rights.</p>
         </div>
         <ol class="steps grid grid-3">
           <li class="card">
             <h3>Analyze</h3>
-            <p>A report-only run scans every enabled category and plans what it would delete, compress or keep, and why. It changes nothing.</p>
+            <p>A report-only run scans every enabled category and plans what it would delete, compress or keep, and why. It changes nothing. In the DeadLoad window, Analyze Storage does the same for the user's own profile.</p>
           </li>
           <li class="card">
             <h3>Review</h3>
-            <p>Read the plan before anything is removed: the run log names the rule behind each decision, and users see the last report in the tray app. Keep report-only on for a pilot week.</p>
-            <p class="note">An interactive review window for a user's own files <span class="status">In development</span></p>
+            <p>Read the plan before anything is removed. Administrators read the run log, which names the rule behind each decision, and keep report-only on for a pilot week. In the DeadLoad window users see every path, size and reason before they confirm; Routine categories start selected, Review categories do not, and Restricted categories are never cleaned from there.</p>
+            <p class="note">The DeadLoad window is part of the pre-release tray app.</p>
           </li>
           <li class="card">
             <h3>Clean</h3>
-            <p>As SYSTEM: weekly maintenance (Sunday 03:00 by default), a daily disk pressure check that also runs on low-disk events, and an on-demand task users may start but not change. Users can clean their own temp files from the tray without admin rights.</p>
+            <p>As SYSTEM: weekly maintenance (Sunday 03:00 by default), a daily disk pressure check that also runs on low-disk events, and an on-demand task users may start but not change. In the DeadLoad window, where policy allows it, only the reviewed items a fresh check still selects are deleted, and every skipped item is listed with its reason.</p>
           </li>
         </ol>
       </div>
     </section>
 
-    <section class="section section-alt" id="examines" aria-labelledby="examines-title">
+    <section class="section section-alt" id="screenshots" aria-labelledby="screenshots-title">
+      <div class="container">
+        <div class="section-intro">
+          <span class="eyebrow">Screenshots</span>
+          <h2 id="screenshots-title">The DeadLoad window.</h2>
+          <p>From analysis to a finished cleanup of a user's own files. These images show sample data, not measurements; they follow your light or dark setting.</p>
+        </div>
+        <div class="shots">
+          <figure class="shot shot-tall">
+            <picture>
+              <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/results-dark.png">
+              <img src="assets/screenshots/results-light.png" width="1000" height="1390" loading="lazy" alt="Cleanup page after Analyze Storage: estimated reclaimable space, the local disk capacity bar, and every category with its size, item count and risk badge. Restricted categories show a lock and the line Managed by your administrator; not cleaned from here. A This computer card shows the last scheduled maintenance and a Request a cleanup button.">
+            </picture>
+            <figcaption>Analyze: estimated space per category, each with its risk tier (sample data).</figcaption>
+          </figure>
+          <figure class="shot">
+            <picture>
+              <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/review-dark.png">
+              <img src="assets/screenshots/review-light.png" width="1000" height="751" loading="lazy" alt="Review cleanup page: the space selected for removal, marked Estimated, a warning that deleted files are not moved to the Recycle Bin and cannot be restored by DeadLoad, and a table of included paths with category, size, last used and why each is listed. Back and Clean Selected Items buttons.">
+            </picture>
+            <figcaption>Review: every path that would be removed, with its size, age and reason (sample data).</figcaption>
+          </figure>
+          <figure class="shot shot-dialog">
+            <picture>
+              <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/confirm-dark.png">
+              <img src="assets/screenshots/confirm-light.png" width="496" height="235" loading="lazy" alt="Confirmation dialog titled Clean selected items?, naming the number of files, categories and estimated size, and stating that deleted files cannot be restored by DeadLoad. Cancel has the focus; the other button is Clean Selected Items.">
+            </picture>
+            <figcaption>Confirm: a last check before anything is deleted (sample data).</figcaption>
+          </figure>
+          <figure class="shot">
+            <picture>
+              <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/complete-dark.png">
+              <img src="assets/screenshots/complete-light.png" width="1000" height="874" loading="lazy" alt="Cleanup complete page: space reclaimed, marked Recovered, against the earlier estimate, counts of deleted and skipped items, and a table of skipped items with the reason for each, such as used too recently or file in use.">
+            </picture>
+            <figcaption>Complete: space recovered from confirmed deletions, and each skipped item with its reason (sample data).</figcaption>
+          </figure>
+          <div class="card">
+            <h3>Estimated, then recovered</h3>
+            <p>Analyze and Review show estimated space. After Clean, the window shows the space recovered from confirmed deletions and lists every item it skipped, such as a file in use or one used too recently, with the reason. Skipped items are left in place, never forced.</p>
+            <p>Deleted files are not moved to the Recycle Bin and cannot be restored by DeadLoad.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="examines" aria-labelledby="examines-title">
       <div class="container">
         <div class="section-intro">
           <span class="eyebrow">What it examines</span>
           <h2 id="examines-title">Built-in categories, with their limits.</h2>
-          <p>A category ships enabled only when its paths were measured on real workstations. Each one has a risk tier that decides how a user's cleanup review will offer it: <span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span> files programs recreate or no longer need, selected by default; <span class="risk risk-review"><svg aria-hidden="true"><use href="#i-eye"/></svg>Review</span> offered but not selected, since removing them can cause reprocessing or a download; <span class="risk risk-restricted"><svg aria-hidden="true"><use href="#i-lock"/></svg>Restricted</span> never offered to users, left to the scheduled runs as policy configures.</p>
+          <p>A category ships enabled only when its paths were measured on real workstations. Each one has a risk tier that decides how a user's cleanup review will offer it: <span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span> files programs recreate or no longer need, selected by default; <span class="risk risk-review"><svg aria-hidden="true"><use href="#i-eye"/></svg>Review</span> offered but not selected, since removing them can cause reprocessing or a download; <span class="risk risk-restricted"><svg aria-hidden="true"><use href="#i-lock"/></svg>Restricted</span> shown to users but never cleaned from the DeadLoad window, left to the scheduled runs as policy configures.</p>
         </div>
 
         <h3>On by default</h3>
@@ -238,7 +237,7 @@
       </div>
     </section>
 
-    <section class="section" id="safety" aria-labelledby="safety-title">
+    <section class="section section-alt" id="safety" aria-labelledby="safety-title">
       <div class="container">
         <div class="section-intro">
           <span class="eyebrow">Safety and transparency</span>
@@ -276,7 +275,7 @@
       </div>
     </section>
 
-    <section class="section section-alt" id="admins" aria-labelledby="admins-title">
+    <section class="section" id="admins" aria-labelledby="admins-title">
       <div class="container">
         <div class="section-intro">
           <span class="eyebrow">For IT administrators</span>
@@ -304,7 +303,7 @@
       </div>
     </section>
 
-    <section class="section" id="install" aria-labelledby="install-title">
+    <section class="section section-alt" id="install" aria-labelledby="install-title">
       <div class="container">
         <div class="section-intro">
           <span class="eyebrow">Install</span>

@@ -216,10 +216,13 @@ PNGs; `out/` is not committed).
 
 ## 5. Known limits
 
-- **Not run live here.** Analyze and Clean were not run against a real profile on the build
-  workstation (by instruction); the window's flow was exercised with the samples, the parsers by the
-  self-test, and the script by `tests/UserAction.Tests.ps1`. The end-to-end standard-user pass
-  (implementation plan slice 4 proof) still has to happen in the Windows Sandbox.
+- **Live run: Windows Sandbox only.** Analyze and Clean were not run against a real profile on the
+  build workstation (by instruction). The end-to-end pass ran in Windows Sandbox on 2026-11-04 with
+  a signed build and seeded files in every tier (temp, CER, Revit web cache, journals): Analyze,
+  Review, the confirmation, Clean, Details, History, Settings and About, light and dark, all
+  reported good by the tester. It ran as the sandbox's administrator account. Analyze and Clean as a
+  separate standard user have not run live yet (the automated sandbox run covers only CleanTemp,
+  CollectLogs and starting OnDemand as a standard user); the engine tests cover the logic.
 - **Monitor DPI changes** are handled in code (`WM_DPICHANGED`, rebuild at the new factor) but were
   not tried on a second monitor; 150 percent is proven by the render scale only.
 - **High contrast** was rendered through its code path with high contrast off, so the images show
@@ -269,4 +272,4 @@ the implementation, not by running it interactively.
 - [x] `tests/UserAction.Tests.ps1`: 29 passed on Windows PowerShell 5.1 and on PowerShell 7.
 - [ ] Narrator pass (not done).
 - [ ] Real high contrast theme and a second monitor at another DPI (not available here).
-- [ ] Standard-user end-to-end run in the Windows Sandbox (not run here; next step of slice 4).
+- [x] End-to-end window run in Windows Sandbox (2026-11-04, signed build, tester-confirmed).
