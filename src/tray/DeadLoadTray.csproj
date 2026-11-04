@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DeadLoad tray app. .NET Framework 4.8 because it ships in every supported Windows build, so
+    the package carries one exe and no runtime. The reference assemblies package lets the .NET SDK
+    build it on a machine without the .NET Framework developer pack; it is build-time only and
+    adds nothing to the output.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>DeadLoadTray</AssemblyName>
+    <RootNamespace>DeadLoad.Tray</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Product>DeadLoad</Product>
+    <AssemblyTitle>DeadLoad tray</AssemblyTitle>
+    <Description>Per-user tray companion for the DeadLoad disk cleanup engine.</Description>
+    <Copyright>DeadLoad contributors</Copyright>
+    <Version>0.1.0</Version>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <!-- The tray must never carry debug symbols or satellite folders into the package. -->
+    <DebugType>none</DebugType>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <!-- JavaScriptSerializer: a Framework assembly, so no third-party JSON dependency. -->
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+
+</Project>
