@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img">
+  <title>DeadLoad</title>
+  <path fill="#F1F5F9" fill-rule="evenodd" d="M32 80 L128 116 L224 80 L224 104 L128 152 L32 104 Z M32 116 L128 164 L224 116 L224 140 L128 188 L32 140 Z M32 152 L128 200 L224 152 L224 176 L128 224 L32 176 Z"/>
+  <path fill="#60A5FA" fill-rule="evenodd" d="M128 32 L224 80 L128 128 L32 80 Z M128 62 L164 80 L128 98 L92 80 Z"/>
+</svg>
