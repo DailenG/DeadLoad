@@ -42,9 +42,11 @@ order, every step idempotent:
    action runs a `Get-FreeSpace` script.
 2. Program files: `engine`, `tray` and `policy` are copied to `%ProgramFiles%\DeadLoad` as
    `<folder>.new-<id>` siblings and swapped in by rename, so a task never sees a half-copied
-   engine. A folder held open by a running tray is updated file by file instead; the in-use file
-   is renamed `*.dlold-<id>` and removed by the next install. Nothing else in the folder is
-   touched.
+   engine. A running tray does not block this: Windows renames the tray folder while its exe
+   runs (measured), the tray keeps running from `tray.old-<id>`, the install warns that the old
+   copy was kept, and the next install removes it. Only if the rename itself fails is the folder
+   updated file by file, the in-use file renamed `*.dlold-<id>` and removed by the next install.
+   Nothing else in the folder is touched.
 3. `%ProgramData%\DeadLoad` is created or re-secured: inheritance broken, SYSTEM and
    Administrators full control, Users read and execute, owner Administrators (by SID). Its
    content is never touched.
@@ -190,8 +192,9 @@ pass; unsigned builds are fine for the earlier ones. Record results in the pilot
    \DeadLoad\OnDemand` succeeds; `schtasks /Change /TN \DeadLoad\OnDemand /DISABLE` is denied;
    `last-run.json` is readable and writing to `%ProgramData%\DeadLoad` is denied.
 6. **Upgrade with the tray running**: bump the version, rebuild, `choco upgrade deadload -y`
-   while the standard user is signed in. Expect success, the tray not stopped, an
-   `InPlace` line for `tray` and a `*.dlold-*` file that the next upgrade removes.
+   while the standard user is signed in. Expect success, the tray not stopped, a `Replaced`
+   line for `tray` with an `Old copy kept at ...tray.old-<id>` warning (or, if the rename fails,
+   `InPlace` and a `*.dlold-*` file), and the leftover gone after the next upgrade.
 7. **Parameters**, one at a time, each from the snapshot or by re-running `choco upgrade
    deadload -y --force --params "'/X'"`:
    - `/NoTray`: the Run value is removed;
