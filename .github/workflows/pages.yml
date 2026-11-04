@@ -33,7 +33,7 @@ jobs:
           node-version: '22'
 
       - name: Test the policy generator
-        run: node --test tests/site
+        run: node --test tests/site/*.test.mjs
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
