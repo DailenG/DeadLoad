@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 498 144" width="498" height="144" role="img">
+  <title>DeadLoad</title>
+  <g transform="translate(8 8) scale(0.5)">
+    <path fill="#0B3B6F" fill-rule="evenodd" d="M32 80 L128 116 L224 80 L224 104 L128 152 L32 104 Z M32 116 L128 164 L224 116 L224 140 L128 188 L32 140 Z M32 152 L128 200 L224 152 L224 176 L128 224 L32 176 Z"/>
+    <path fill="#0078D4" fill-rule="evenodd" d="M128 32 L224 80 L128 128 L32 80 Z M128 62 L164 80 L128 98 L92 80 Z"/>
+  </g>
+  <text x="144" y="98" font-family="Inter, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif" font-size="72" font-weight="600" textLength="330" lengthAdjust="spacing"><tspan fill="#0B3B6F">Dead</tspan><tspan fill="#0078D4">Load</tspan></text>
+</svg>
