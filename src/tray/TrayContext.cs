@@ -13,8 +13,13 @@ namespace DeadLoad.Tray
     internal sealed class TrayContext : ApplicationContext
     {
         private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(10);
+        // After "Request a cleanup": look for the finished run this often, for at most this long.
+        private static readonly TimeSpan RequestedRunPollInterval = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan RequestedRunWatchLimit = TimeSpan.FromMinutes(90);
         private static readonly TimeSpan LowDiskQuietPeriod = TimeSpan.FromHours(4);
         private const int BalloonMilliseconds = 10000;
+        private bool balloonVisible;
+        private DateTime? watchRequestedRunUntilUtc;
 
         private readonly NotifyIcon icon;
         private readonly ContextMenuStrip menu;
@@ -60,6 +65,9 @@ namespace DeadLoad.Tray
                 Visible = true,
             };
             icon.DoubleClick += OnViewReport;
+            icon.BalloonTipShown += (sender, args) => balloonVisible = true;
+            icon.BalloonTipClosed += (sender, args) => balloonVisible = false;
+            icon.BalloonTipClicked += (sender, args) => balloonVisible = false;
 
             timer = new Timer { Interval = (int)PollInterval.TotalMilliseconds };
             timer.Tick += (sender, args) => Poll();
@@ -104,6 +112,36 @@ namespace DeadLoad.Tray
             }
             ApplyMenuPolicy();
             Refresh();
+            if (watchRequestedRunUntilUtc.HasValue && DateTime.UtcNow > watchRequestedRunUntilUtc.Value) { StopWatchingRequestedRun(); }
+        }
+
+        /// <summary>
+        /// Shows one notification. Windows queues a new balloon behind one still on screen
+        /// until the user closes it (measured: the result stayed hidden behind a "started"
+        /// notice), so a visible one is dismissed first; hiding the icon for a moment is the
+        /// only way NotifyIcon offers to do that.
+        /// </summary>
+        private void Notify(string title, string text, ToolTipIcon level)
+        {
+            if (balloonVisible)
+            {
+                icon.Visible = false;
+                icon.Visible = true;
+                balloonVisible = false;
+            }
+            icon.ShowBalloonTip(BalloonMilliseconds, title, text, level);
+        }
+
+        private void StartWatchingRequestedRun()
+        {
+            watchRequestedRunUntilUtc = DateTime.UtcNow + RequestedRunWatchLimit;
+            timer.Interval = (int)RequestedRunPollInterval.TotalMilliseconds;
+        }
+
+        private void StopWatchingRequestedRun()
+        {
+            watchRequestedRunUntilUtc = null;
+            timer.Interval = (int)PollInterval.TotalMilliseconds;
         }
 
         private void Refresh()
@@ -149,7 +187,7 @@ namespace DeadLoad.Tray
             }
             state.LastLowDiskNotificationUtc = now;
             string hint = settings.AllowCleanTemp ? " Use \"Clean my temp files\" from this icon to free some space." : string.Empty;
-            icon.ShowBalloonTip(BalloonMilliseconds, "Low disk space",
+            Notify("Low disk space",
                 "Drive " + disk.Drive.TrimEnd('\\') + " has " + LastRunReport.FormatBytes(disk.FreeBytes) + " free." + hint,
                 ToolTipIcon.Warning);
             return true;
@@ -159,14 +197,16 @@ namespace DeadLoad.Tray
         {
             if (report == null || string.IsNullOrEmpty(report.EndTimeText)) { return false; }
             if (string.Equals(report.EndTimeText, state.LastSeenEndTime, StringComparison.Ordinal)) { return false; }
-            // The first report this user ever sees is history, not news.
+            // The first report this user ever sees is history, not news, unless they asked for it.
+            bool requested = watchRequestedRunUntilUtc.HasValue;
             bool firstSighting = state.LastSeenEndTime == null;
             state.LastSeenEndTime = report.EndTimeText;
-            if (!firstSighting && settings.NotifyOnCompletion)
+            if (requested) { StopWatchingRequestedRun(); }
+            // A run the user requested is always reported; other runs only when policy asks.
+            if (requested || (!firstSighting && settings.NotifyOnCompletion))
             {
                 string freed = report.FreedBytes.HasValue ? LastRunReport.FormatBytes(report.FreedBytes.Value) : "nothing";
-                icon.ShowBalloonTip(BalloonMilliseconds, "Cleanup finished",
-                    "Result: " + report.Result + ". Freed " + freed + ".", ToolTipIcon.Info);
+                Notify("Cleanup finished", "Result: " + report.Result + ". Freed " + freed + ".", ToolTipIcon.Info);
             }
             return true;
         }
@@ -175,10 +215,12 @@ namespace DeadLoad.Tray
         {
             if (cleanTempRunning) { return; }
             cleanTempRunning = true;
+            // Progress shows on the menu item, not in a notification that would hide the result.
+            string label = cleanTempItem.Text;
+            cleanTempItem.Text = "Cleaning your temp files...";
             cleanTempItem.Enabled = false;
             try
             {
-                icon.ShowBalloonTip(BalloonMilliseconds, "Cleaning your temp files", "This runs in the background.", ToolTipIcon.Info);
                 UserActionResult result = await UserActionRunner.RunAsync("CleanTemp");
                 ShowActionResult("Temp cleanup", result, false);
                 Poll();
@@ -186,6 +228,7 @@ namespace DeadLoad.Tray
             finally
             {
                 cleanTempRunning = false;
+                cleanTempItem.Text = label;
                 cleanTempItem.Enabled = true;
             }
         }
@@ -194,16 +237,18 @@ namespace DeadLoad.Tray
         {
             if (collectLogsRunning) { return; }
             collectLogsRunning = true;
+            string label = collectLogsItem.Text;
+            collectLogsItem.Text = "Collecting your logs...";
             collectLogsItem.Enabled = false;
             try
             {
-                icon.ShowBalloonTip(BalloonMilliseconds, "Collecting your logs", "This can take a minute.", ToolTipIcon.Info);
                 UserActionResult result = await UserActionRunner.RunAsync("CollectLogs");
                 ShowActionResult("Log collection", result, true);
             }
             finally
             {
                 collectLogsRunning = false;
+                collectLogsItem.Text = label;
                 collectLogsItem.Enabled = true;
             }
         }
@@ -227,7 +272,7 @@ namespace DeadLoad.Tray
             }
             // The balloon text is limited to 255 characters; the path matters most, so keep the end.
             if (text.Length > 255) { text = "..." + text.Substring(text.Length - 252); }
-            icon.ShowBalloonTip(BalloonMilliseconds, title + ": " + result.Result, text, level);
+            Notify(title + ": " + result.Result, text, level);
         }
 
         private void OnRequestCleanup(object sender, EventArgs e)
@@ -235,12 +280,13 @@ namespace DeadLoad.Tray
             string error = TaskStarter.StartOnDemand();
             if (error == null)
             {
-                icon.ShowBalloonTip(BalloonMilliseconds, "Cleanup requested",
-                    "A cleanup has started in the background. You can keep working.", ToolTipIcon.Info);
+                Notify("Cleanup requested",
+                    "A cleanup has started in the background. You can keep working; you will be told when it finishes.", ToolTipIcon.Info);
+                StartWatchingRequestedRun();
             }
             else
             {
-                icon.ShowBalloonTip(BalloonMilliseconds, "Cleanup not started", error, ToolTipIcon.Warning);
+                Notify("Cleanup not started", error, ToolTipIcon.Warning);
             }
         }
 
@@ -249,7 +295,7 @@ namespace DeadLoad.Tray
             string folder = TrayPaths.NewestJournalsFolder();
             if (folder == null)
             {
-                icon.ShowBalloonTip(BalloonMilliseconds, "No journals folder", "No Revit journals folder was found for your account.", ToolTipIcon.Info);
+                Notify("No journals folder", "No Revit journals folder was found for your account.", ToolTipIcon.Info);
                 return;
             }
             try
@@ -259,7 +305,7 @@ namespace DeadLoad.Tray
             }
             catch (Exception ex)
             {
-                icon.ShowBalloonTip(BalloonMilliseconds, "Could not open the folder", ex.Message, ToolTipIcon.Warning);
+                Notify("Could not open the folder", ex.Message, ToolTipIcon.Warning);
             }
         }
 
