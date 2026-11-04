@@ -283,10 +283,11 @@ foreach ($section in $catalog.Sections)
     $sectionCategory[$section.Name] = $categoryName
     Add-DLCategory -Name $categoryName -Display $section.Display -Parent 'DeadLoad'
 }
-$categoryIds = @($defaults.Categories | ForEach-Object { $_.Id })
-foreach ($id in $categoryIds)
+foreach ($definition in $defaults.Categories)
 {
-    Add-DLCategory -Name ('Cat_Category_' + (ConvertTo-DLAdmxToken -Text $id)) -Display $id -Parent $sectionCategory['Category']
+    $display = $definition.Id
+    if ($definition.ContainsKey('DisplayName')) { $display = '{0} ({1})' -f $definition.DisplayName, $definition.Id }
+    Add-DLCategory -Name ('Cat_Category_' + (ConvertTo-DLAdmxToken -Text $definition.Id)) -Display $display -Parent $sectionCategory['Category']
 }
 
 $sections = @{}
@@ -304,13 +305,17 @@ foreach ($definition in $defaults.Categories)
     $id = $definition.Id
     $token = ConvertTo-DLAdmxToken -Text $id
     $subKey = $sections['Category'].SubKey.Replace('{Id}', $id)
+    # D22: the category's own text and its risk tier, from Defaults.psd1 (one source with the
+    # user's cleanup review).
+    if (-not $definition.ContainsKey('Risk') -or -not $defaults.RiskTiers.ContainsKey($definition.Risk)) { throw ('Category {0} has no known Risk tier.' -f $id) }
+    $context = 'Category {0} ({1}). {2} Risk tier {3}' -f $id, $definition.DisplayName, $definition.Description, $defaults.RiskTiers[$definition.Risk]
     foreach ($entry in $categoryEntries)
     {
         # Same applicability rule as the engine: an entry with a Categories list is only for those ids.
         if ($entry.ContainsKey('Categories') -and @($entry.Categories) -notcontains $id) { continue }
         $default = $defaults.CategorySettingDefaults[$entry.Name]
         if ($definition.ContainsKey('Settings') -and $definition.Settings.ContainsKey($entry.Name)) { $default = $definition.Settings[$entry.Name] }
-        Add-DLSettingPolicy -Entry $entry -PolicyName ('Category_{0}_{1}' -f $token, $entry.Name) -Display ('{0}: {1}' -f $id, $entry.Display) -SubKey $subKey -Parent ('Cat_Category_' + $token) -Default $default -Context ('Category ' + $id + '.')
+        Add-DLSettingPolicy -Entry $entry -PolicyName ('Category_{0}_{1}' -f $token, $entry.Name) -Display ('{0}: {1}' -f $id, $entry.Display) -SubKey $subKey -Parent ('Cat_Category_' + $token) -Default $default -Context $context
     }
 }
 

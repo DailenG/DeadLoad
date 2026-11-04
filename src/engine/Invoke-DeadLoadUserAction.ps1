@@ -14,29 +14,68 @@
                        Tray.CleanTempMinAgeDays age floor). Writes Application event 4001.
           CollectLogs  Export-DeadLoadSupportBundle to SupportShare when it is set and reachable,
                        else to the user's Desktop. The cmdlet writes event 4002.
+          Analyze      Invoke-DeadLoadAnalysis: the cleanup review's report-only scan of the
+                       current profile; writes analysis.json (D22).
+          Clean        Invoke-DeadLoadCleanup -Category: deletes the reviewed items of those
+                       categories that a fresh plan still selects (D23). Writes event 4003.
+          Configuration
+                       Get-DeadLoadConfiguration -Trace: the effective configuration with the
+                       source of every value, written to a JSON file (too large for one stdout
+                       line) for the window's read-only Settings page. Not gated by policy: it
+                       only reads what policy says.
+        Tray.AllowCleanTemp gates CleanTemp, Analyze and Clean: every way a user cleans their
+        own files.
 
-        stdout carries only the result: { Action, Result (Success|Partial|Failed|Disabled),
-        Message, Path (CollectLogs), FreedBytes (CleanTemp) }. Prose goes to the verbose stream.
-        Exit code 0 unless the script itself failed (1, with Result Failed).
+        stdout carries only the result (docs/design/ENGINE-UI-CONTRACT.md): { Action, Result,
+        Message } and per action Path (CollectLogs, Analyze, Clean, Configuration), FreedBytes
+        (CleanTemp, Clean), AnalysisId, EstimatedBytes, ItemCount (Analyze), DeletedCount,
+        SkippedCount (Clean), EngineVersion, SettingCount, RejectedCount (Configuration). Prose
+        goes to the verbose stream. Exit code 0 when the action was handled (whatever its
+        Result), 2 when Clean was refused (Result Refused), 1 when the script itself failed
+        (Result Failed).
 
     .PARAMETER Action
-        CleanTemp or CollectLogs.
+        CleanTemp, CollectLogs, Analyze, Clean or Configuration.
+
+    .PARAMETER Categories
+        Clean: the category ids the user selected, comma-separated (one argument under -File).
+
+    .PARAMETER AnalysisPath
+        Analyze: where to write the analysis; Clean: the analysis to clean from. Default
+        %LOCALAPPDATA%\DeadLoad\analysis.json.
+
+    .PARAMETER AnalysisId
+        Clean: the id of the analysis the user reviewed; a different file is refused.
+
+    .PARAMETER OutputPath
+        Configuration: the file to write. Default %LOCALAPPDATA%\DeadLoad\configuration.json.
 
     .PARAMETER ModulePath
         The DeadLoad module manifest. Default: DeadLoad\DeadLoad.psd1 beside this script.
 
     .PARAMETER NoEventLog
-        Do not write event 4001 and ask the engine not to write events (tests).
+        Do not write events 4001 or 4003 and ask the engine not to write events (tests).
 
     .EXAMPLE
         powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File Invoke-DeadLoadUserAction.ps1 -Action CleanTemp
+
+    .EXAMPLE
+        powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File Invoke-DeadLoadUserAction.ps1 -Action Clean -Categories user.temp,autodesk.cer -AnalysisId 20261104T150000Z-1a2b3c4d
 #>
 [CmdletBinding()]
 param
 (
     [Parameter(Mandatory)]
-    [ValidateSet('CleanTemp', 'CollectLogs')]
+    [ValidateSet('CleanTemp', 'CollectLogs', 'Analyze', 'Clean', 'Configuration')]
     [string]$Action,
+
+    [string[]]$Categories,
+
+    [string]$AnalysisPath,
+
+    [string]$AnalysisId,
+
+    [string]$OutputPath,
 
     # Resolved in the body: Windows PowerShell 5.1 leaves $PSScriptRoot empty in param()
     # defaults of a script started with -File, so a default here fails to bind before any
@@ -334,6 +373,145 @@ function Invoke-DLUACollectLogs
     Write-Verbose $message
 }
 
+function Invoke-DLUAAnalyze
+{
+    [CmdletBinding()]
+    param ([Parameter(Mandatory)] [System.Collections.IDictionary]$Result)
+
+    $parameters = @{}
+    if ($AnalysisPath) { $parameters['Path'] = $AnalysisPath }
+    if ($NoEventLog) { $parameters['NoEventLog'] = $true }
+    $engineWarnings = $null
+    $analysis = @(Invoke-DeadLoadAnalysis @parameters -WarningAction SilentlyContinue -WarningVariable engineWarnings) | Select-Object -Last 1
+    if ($null -eq $analysis) { throw 'The engine returned no analysis.' }
+
+    $Result.Path = [string]$analysis.Path
+    $Result.AnalysisId = [string]$analysis.analysisId
+    $Result.EstimatedBytes = [int64]$analysis.totals.estimatedBytes
+    $Result.ItemCount = [int]$analysis.totals.itemCount
+    switch ([string]$analysis.result)
+    {
+        'Disabled' { $Result.Result = 'Disabled'; $message = 'Cleanup is turned off on this computer.' }
+        'Failed' { $Result.Result = 'Failed'; $message = 'The analysis failed.' }
+        'Partial' { $Result.Result = 'Partial'; $message = 'The analysis stopped early: an estimated {0} in {1} item(s) found so far.' -f (Format-DLUABytes -Bytes $Result.EstimatedBytes), $Result.ItemCount }
+        default { $Result.Result = 'Success'; $message = 'An estimated {0} in {1} item(s) can be cleaned.' -f (Format-DLUABytes -Bytes $Result.EstimatedBytes), $Result.ItemCount }
+    }
+    if ($analysis.reason -and $Result.Result -ne 'Success') { $message = '{0} ({1})' -f $message, $analysis.reason }
+    if (@($engineWarnings).Count -gt 0) { $message = '{0} {1} warning(s).' -f $message, @($engineWarnings).Count }
+    $Result.Message = $message
+    Write-Verbose $message
+}
+
+function Invoke-DLUAClean
+{
+    [CmdletBinding()]
+    param ([Parameter(Mandatory)] [System.Collections.IDictionary]$Result)
+
+    # powershell.exe -File passes "a,b" as one string; the engine splits it again.
+    $ids = @($Categories | ForEach-Object { [string]$_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $parameters = @{ Category = $ids }
+    if ($AnalysisPath) { $parameters['AnalysisPath'] = $AnalysisPath }
+    if ($AnalysisId) { $parameters['AnalysisId'] = $AnalysisId }
+    if ($NoEventLog) { $parameters['NoEventLog'] = $true }
+    $engineWarnings = $null
+    $cleanup = @(Invoke-DeadLoadCleanup @parameters -WarningAction SilentlyContinue -WarningVariable engineWarnings) | Select-Object -Last 1
+    if ($null -eq $cleanup) { throw 'The engine returned no cleanup report.' }
+
+    # No report is written for a refusal: Path stays null.
+    if ($cleanup.Path) { $Result.Path = [string]$cleanup.Path }
+    $Result.FreedBytes = [int64]$cleanup.freedBytes
+    $Result.DeletedCount = [int]$cleanup.deletedCount
+    $Result.SkippedCount = [int]$cleanup.skippedCount
+    $freed = Format-DLUABytes -Bytes $Result.FreedBytes
+    switch ([string]$cleanup.result)
+    {
+        'Refused' { $Result.Result = 'Refused'; $message = 'Nothing was deleted: {0}' -f $cleanup.reason }
+        'Disabled' { $Result.Result = 'Disabled'; $message = 'Cleanup is turned off on this computer.' }
+        'ReportOnly' { $Result.Result = 'ReportOnly'; $message = 'Report-only mode is on, so nothing was deleted.' }
+        'Failed' { $Result.Result = 'Failed'; $message = 'The cleanup failed after recovering {0}. ({1})' -f $freed, $cleanup.reason }
+        'Partial' { $Result.Result = 'Partial'; $message = 'Recovered {0}; {1} item(s) were skipped.' -f $freed, $Result.SkippedCount }
+        default { $Result.Result = 'Success'; $message = 'Recovered {0}.' -f $freed }
+    }
+    if (@($engineWarnings).Count -gt 0) { $message = '{0} {1} warning(s).' -f $message, @($engineWarnings).Count }
+    $Result.Message = $message
+    Write-Verbose $message
+
+    if (-not $NoEventLog -and $Result.Result -ne 'Refused')
+    {
+        Write-DLUAEvent -Id 4003 -Message ('User cleanup review (tray): result {0}, categories {1}, deleted {2}, skipped {3}, freed {4} bytes.' -f $Result.Result, ($ids -join ','), $Result.DeletedCount, $Result.SkippedCount, $Result.FreedBytes)
+    }
+}
+
+function ConvertTo-DLUAText
+{
+    # One display string per value: lists joined with "; ", switches as 1 or 0.
+    param ([AllowNull()] [object]$Value)
+
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [string]) { return $Value }
+    if ($Value -is [bool]) { if ($Value) { return '1' } return '0' }
+    if ($Value -is [System.Collections.IEnumerable]) { return (@($Value | ForEach-Object { [string]$_ }) -join '; ') }
+    return [string]$Value
+}
+
+function Invoke-DLUAConfiguration
+{
+    <#
+        .SYNOPSIS
+            Writes the effective configuration (Get-DeadLoadConfiguration -Trace) to a JSON file
+            and reports its path: 300 and more rows do not belong on one stdout line.
+    #>
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory)] [System.Collections.IDictionary]$Result,
+        [AllowNull()] [object]$Module
+    )
+
+    $engineWarnings = $null
+    $rows = @(Get-DeadLoadConfiguration -Trace -WarningAction SilentlyContinue -WarningVariable engineWarnings)
+    $settings = New-Object 'System.Collections.Generic.List[object]'
+    $rejected = 0
+    foreach ($row in $rows)
+    {
+        $reason = $null
+        if ($row.PSObject.Properties['Reason']) { $reason = [string]$row.Reason }
+        $source = [string]$row.Source
+        if ($source -like 'Rejected:*') { $rejected++ }
+        $settings.Add([pscustomobject][ordered]@{ name = [string]$row.Name; value = (ConvertTo-DLUAText -Value $row.Value); source = $source; reason = $reason })
+    }
+
+    $engineVersion = $null
+    if ($null -ne $Module) { $engineVersion = [string]$Module.Version }
+    $document = [pscustomobject][ordered]@{
+        schemaVersion = 1
+        product       = 'DeadLoad'
+        engineVersion = $engineVersion
+        createdUtc    = [DateTime]::UtcNow.ToString('o')
+        settings      = $settings.ToArray()
+    }
+
+    $target = $OutputPath
+    if (-not $target) { $target = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'DeadLoad\configuration.json' }
+    $folder = Split-Path -Path $target -Parent
+    if (-not [System.IO.Directory]::Exists($folder)) { [void][System.IO.Directory]::CreateDirectory($folder) }
+    # Write then rename, so the window never reads half a file.
+    $temporary = $target + '.tmp'
+    [System.IO.File]::WriteAllText($temporary, ($document | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding $false))
+    if ([System.IO.File]::Exists($target)) { [System.IO.File]::Replace($temporary, $target, [NullString]::Value) }
+    else { [System.IO.File]::Move($temporary, $target) }
+
+    $Result.Path = $target
+    $Result.EngineVersion = $engineVersion
+    $Result.SettingCount = $settings.Count - $rejected
+    $Result.RejectedCount = $rejected
+    $Result.Result = 'Success'
+    $message = '{0} setting(s) read; {1} value(s) ignored.' -f $Result.SettingCount, $rejected
+    if (@($engineWarnings).Count -gt 0) { $message = '{0} {1} warning(s).' -f $message, @($engineWarnings).Count }
+    $Result.Message = $message
+    Write-Verbose $message
+}
+
 function Format-DLUABytes
 {
     param ([int64]$Bytes)
@@ -346,26 +524,48 @@ function Format-DLUABytes
 
 # The shape is fixed per action so the tray can rely on it.
 $result = [ordered]@{ Action = $Action; Result = 'Failed'; Message = '' }
-if ($Action -eq 'CollectLogs') { $result.Path = $null }
-else { $result.FreedBytes = [int64]0 }
+switch ($Action)
+{
+    'CollectLogs' { $result.Path = $null }
+    'Analyze' { $result.Path = $null; $result.AnalysisId = $null; $result.EstimatedBytes = [int64]0; $result.ItemCount = 0 }
+    'Clean' { $result.Path = $null; $result.FreedBytes = [int64]0; $result.DeletedCount = 0; $result.SkippedCount = 0 }
+    'Configuration' { $result.Path = $null; $result.EngineVersion = $null; $result.SettingCount = 0; $result.RejectedCount = 0 }
+    default { $result.FreedBytes = [int64]0 }
+}
 $exitCode = 0
 
 try
 {
-    $policy = Get-DLUATrayPolicy
-    $allowName = 'Allow' + $Action
-    if ([int]$policy.$allowName -ne 1)
+    $policy = $null
+    $disabled = $false
+    # Configuration only reads the effective configuration, policy included: no switch gates it.
+    if ($Action -ne 'Configuration')
     {
-        $result.Result = 'Disabled'
-        $result.Message = 'This action is turned off by your administrator.'
-        Write-Verbose ('{0} disabled by {1}.' -f $Action, $policy.Sources[$allowName])
+        $policy = Get-DLUATrayPolicy
+        # The review flow cleans the user's own files, as CleanTemp does: one policy gates both.
+        $allowName = 'Allow' + $Action
+        if ($Action -eq 'Analyze' -or $Action -eq 'Clean') { $allowName = 'AllowCleanTemp' }
+        if ([int]$policy.$allowName -ne 1)
+        {
+            $disabled = $true
+            $result.Result = 'Disabled'
+            $result.Message = 'This action is turned off by your administrator.'
+            Write-Verbose ('{0} disabled by {1}.' -f $Action, $policy.Sources[$allowName])
+        }
     }
-    else
+    if (-not $disabled)
     {
         if (-not $ModulePath) { $ModulePath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'DeadLoad\DeadLoad.psd1' }
-        Import-Module -Name $ModulePath -ErrorAction Stop -Verbose:$false
-        if ($Action -eq 'CleanTemp') { Invoke-DLUACleanTemp -Result $result }
-        else { Invoke-DLUACollectLogs -Result $result -Policy $policy }
+        $module = @(Import-Module -Name $ModulePath -ErrorAction Stop -Verbose:$false -PassThru) | Select-Object -First 1
+        switch ($Action)
+        {
+            'CleanTemp' { Invoke-DLUACleanTemp -Result $result }
+            'Analyze' { Invoke-DLUAAnalyze -Result $result }
+            'Clean' { Invoke-DLUAClean -Result $result }
+            'Configuration' { Invoke-DLUAConfiguration -Result $result -Module $module }
+            default { Invoke-DLUACollectLogs -Result $result -Policy $policy }
+        }
+        if ($result.Result -eq 'Refused') { $exitCode = 2 }
     }
 }
 catch

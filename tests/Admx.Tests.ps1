@@ -167,6 +167,22 @@ Describe 'Policy templates' {
         }
     }
 
+    It 'states each category''s risk tier, display name and description in its explain text (D22)' {
+        $strings = @{}
+        foreach ($s in $script:Adml.policyDefinitionResources.resources.stringTable.string) { $strings[$s.id] = $s.InnerText }
+        foreach ($definition in $script:Defaults.Categories)
+        {
+            @('Routine', 'Review', 'Restricted') | Should -Contain $definition.Risk -Because $definition.Id
+            $definition.DisplayName | Should -Not -BeNullOrEmpty -Because $definition.Id
+            $definition.Description | Should -Not -BeNullOrEmpty -Because $definition.Id
+            $token = $definition.Id -replace '[^A-Za-z0-9_]', '_'
+            $help = $strings[('Category_{0}_Enabled_Help' -f $token)]
+            $help | Should -Match ([regex]::Escape(('Risk tier {0}' -f $script:Defaults.RiskTiers[$definition.Risk]))) -Because $definition.Id
+            $help | Should -Match ([regex]::Escape($definition.Description)) -Because $definition.Id
+            $strings[('Cat_Category_' + $token)] | Should -Be ('{0} ({1})' -f $definition.DisplayName, $definition.Id)
+        }
+    }
+
     It 'is deterministic and matches the committed files' {
         $base = Join-Path ([System.IO.Path]::GetTempPath()) ('dladmx-' + [guid]::NewGuid().ToString('N'))
         try

@@ -40,7 +40,7 @@
         @{ Section = 'Schedule'; Name = 'AllowOnBattery'; Type = 'Bool'; Scope = 'Machine'; Display = 'Allow runs on battery'; Explain = 'Off: scheduled runs do not start on battery power.' }
 
         @{ Section = 'Tray'; Name = 'ShowTray'; Type = 'Bool'; Scope = 'Both'; Display = 'Show the tray app'; Explain = 'Off: the tray app exits at start.' }
-        @{ Section = 'Tray'; Name = 'AllowCleanTemp'; Type = 'Bool'; Scope = 'Both'; Display = 'Allow "Clean my temp files"'; Explain = 'Users may delete their own eligible temp files.' }
+        @{ Section = 'Tray'; Name = 'AllowCleanTemp'; Type = 'Bool'; Scope = 'Both'; Display = 'Allow users to clean their own files ("Clean my temp files" and the cleanup review)'; Explain = 'Users may delete their own eligible temp files ("Clean my temp files"), and analyze, review and clean their own profile''s Routine and Review categories in the DeadLoad window. Restricted and machine-wide categories are never offered there. Off: both are turned off.' }
         @{ Section = 'Tray'; Name = 'AllowRequestCleanup'; Type = 'Bool'; Scope = 'Both'; Display = 'Allow "Request a cleanup"'; Explain = 'Users may start the OnDemand task.' }
         @{ Section = 'Tray'; Name = 'AllowCollectLogs'; Type = 'Bool'; Scope = 'Both'; Display = 'Allow "Collect my logs for support"'; Explain = 'Users may zip their recent journals and error logs.' }
         @{ Section = 'Tray'; Name = 'LowDiskNotifications'; Type = 'Bool'; Scope = 'Both'; Display = 'Low disk notifications'; Explain = 'At most one notification every 4 hours.' }
@@ -49,7 +49,7 @@
         @{ Section = 'Tray'; Name = 'NotifyOnCompletion'; Type = 'Bool'; Scope = 'Both'; Display = 'Notify when a cleanup completes'; Explain = 'Shown when the last run report changes.' }
         @{ Section = 'Tray'; Name = 'SupportShare'; Type = 'String'; Scope = 'Both'; Display = 'Support share for collected logs'; Explain = 'UNC folder for "Collect my logs"; empty means the Desktop.' }
         @{ Section = 'Tray'; Name = 'CollectDays'; Type = 'Int'; Min = 1; Max = 365; Scope = 'Both'; Display = 'Days of logs to collect'; Explain = 'How far back "Collect my logs" reaches.' }
-        @{ Section = 'Tray'; Name = 'CleanTempMinAgeDays'; Type = 'Int'; Min = 0; Max = 365; Scope = 'Both'; Display = 'Minimum age for "Clean my temp files" (days)'; Explain = 'Files newer than this are kept.' }
+        @{ Section = 'Tray'; Name = 'CleanTempMinAgeDays'; Type = 'Int'; Min = 0; Max = 365; Scope = 'Both'; Display = 'Minimum age for "Clean my temp files" (days)'; Explain = 'Files newer than this are kept by "Clean my temp files" and by the cleanup review in the DeadLoad window.' }
 
         @{ Section = 'Category'; Name = 'Enabled'; Type = 'Bool'; Display = 'Enabled'; Explain = 'Whether the category is processed.' }
         @{ Section = 'Category'; Name = 'AgeDays'; Type = 'Int'; Min = 0; Max = 36500; Display = 'Age limit (days)'; Explain = 'Items whose activity is older are selected. 0 means not set.' }

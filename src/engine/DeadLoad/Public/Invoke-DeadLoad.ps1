@@ -10,9 +10,27 @@ function Invoke-DeadLoad
             PressureCheck (only below the floor), OnDemand (the policy's OnDemandMode), User
             (current profile only, user-action categories, no pressure).
 
+            User with -Category is the user's cleanup review (D22, D23): the named categories
+            instead of the user-action set, each of which must pass Test-DLReviewCategory (a
+            Restricted, machine or non-deletion category fails the run); deletion only, a
+            pressure-only category at its PressureAgeDays; Tray.CleanTempMinAgeDays protects
+            newer items. -ReviewedItem limits acting to the reviewed items (the intersection).
+
             Report-only (policy or -ReportOnly) and -WhatIf produce the full plan and change
             nothing. Prose goes to the verbose stream and the run log; the output stream
             carries only the summary.
+
+        .PARAMETER Category
+            Run only these category ids.
+
+        .PARAMETER IncludePlan
+            Adds a Plan property to the returned summary: every scanned item with full path,
+            selection, protection and outcome. Never written to the run reports or events.
+
+        .PARAMETER ReviewedItem
+            User review only: full path -> fingerprint (Get-DLFingerprint) of every item and
+            folder file the user reviewed. Only selected items found here, unchanged, are acted
+            on.
 
         .PARAMETER Configuration
             Test seam: settings that override every source; registry is not read.
@@ -34,6 +52,10 @@ function Invoke-DeadLoad
 
         [string[]]$Category,
 
+        [switch]$IncludePlan,
+
+        [hashtable]$ReviewedItem,
+
         [hashtable]$Configuration,
 
         [string]$DataRoot,
@@ -53,11 +75,14 @@ function Invoke-DeadLoad
     $volume = $null
     $result = 'Success'
     $reason = $null
+    $plan = $null
+    $review = ($Mode -eq 'User' -and $Category.Count -gt 0)
 
     try
     {
         if ($Configuration) { $config = Get-DLConfiguration -Override $Configuration -NoRegistry }
         else { $config = Get-DLConfiguration }
+        if ($ReviewedItem -and -not $review) { throw 'ReviewedItem applies only to a User run with Category.' }
 
         $effectiveReportOnly = ([bool]$ReportOnly -or [int]$config.General.ReportOnly -eq 1)
         $run = New-DLRunContext -Configuration $config -Mode $Mode -DataRoot $DataRoot -ReportOnly $effectiveReportOnly -WhatIf $isWhatIf
@@ -132,14 +157,40 @@ function Invoke-DeadLoad
             $entry = $config.Categories[$id]
             $definition = $entry.Definition
             if ($Category -and $Category -notcontains $id) { continue }
-            if ($Mode -eq 'User' -and -not $definition.UserAction) { continue }
+            if ($review)
+            {
+                $refusal = Test-DLReviewCategory -Entry $entry
+                if ($refusal) { throw ('Category {0} cannot be cleaned from the user review: {1}.' -f $id, $refusal) }
+            }
+            elseif ($Mode -eq 'User')
+            {
+                if (-not $definition.UserAction) { continue }
+                # D25: a Restricted category (or one without a tier) never takes part in a
+                # user-started cleanup, whatever its UserAction flag says.
+                if ([string]$definition.Risk -ne 'Routine' -and [string]$definition.Risk -ne 'Review') { continue }
+            }
             $enabled = ([int]$entry.Settings.Enabled -eq 1)
             $run.Categories[$id] = New-DLCategoryStat -Id $id -Enabled $enabled
             if (-not $enabled) { continue }
 
             $settings = @{}
             foreach ($key in $entry.Settings.Keys) { $settings[$key] = $entry.Settings[$key] }
-            if ($Mode -eq 'User')
+            if ($review)
+            {
+                # The user's own request deletes: a pressure-only category (D9) at the age it
+                # gives items up under pressure. The tray's age floor protects newer items.
+                if ([string]$settings.RoutineAction -eq 'None')
+                {
+                    $settings.RoutineAction = 'Delete'
+                    $settings.AgeDays = $settings.PressureAgeDays
+                    $settings.AgeBasis = 'Newest'
+                }
+                $floorDays = [double]$config.Tray.CleanTempMinAgeDays
+                if ([double]$settings.AgeDays -gt 0) { $settings.AgeDays = [math]::Max([double]$settings.AgeDays, $floorDays) }
+                $settings.MinAgeHours = [math]::Max([double]$settings.MinAgeHours, $floorDays * 24)
+                $settings.PressureEnabled = 0
+            }
+            elseif ($Mode -eq 'User')
             {
                 # The tray's own age floor; users never trigger pressure.
                 $settings.AgeDays = [math]::Max([double]$settings.AgeDays, [double]$config.Tray.CleanTempMinAgeDays)
@@ -224,6 +275,7 @@ function Invoke-DeadLoad
                 if (Test-DLActivation -Settings $entry.Settings -Volume $volume)
                 {
                     Select-DLRoutine -Run $run -Settings $entry.Settings -Item $entry.Items -Volume $volume
+                    if ($ReviewedItem) { Limit-DLReviewedSelection -Run $run -Entry $entry -ReviewedItem $ReviewedItem }
                     Invoke-DLSelected -Run $run -Entry $entry -Action ([string]$entry.Settings.RoutineAction) -Phase 'Routine'
                 }
                 else
@@ -260,6 +312,7 @@ function Invoke-DeadLoad
         if (Test-DLBudgetExhausted -Run $run) { $result = 'Partial'; $reason = 'Budget exhausted' }
         elseif ($run.Totals.FailedCount -gt 0) { $result = 'Partial'; $reason = ('{0} item(s) failed' -f $run.Totals.FailedCount) }
         elseif ($run.VolumeState.PressureBefore -and -not $run.VolumeState.TargetReached -and -not ($run.ReportOnly -or $run.WhatIf)) { $result = 'Partial'; $reason = 'Pressure target not reached' }
+        if ($IncludePlan) { $plan = @(ConvertTo-DLPlan -Entry $entries.ToArray()) }
     }
     catch
     {
@@ -302,6 +355,12 @@ function Invoke-DeadLoad
             $compact = (ConvertTo-DLJson -InputObject ($summary | Select-Object -Property * -ExcludeProperty Skips, Failures, Configuration)) -replace '\s+', ' '
             Write-DLEvent -Run $run -Id 1001 -Level $level -Message ('Run {0}: {1}. {2}' -f $result, $reason, $compact)
             Save-DLRunReport -Run $run -Summary $summary
+            # Added after the report and events: the plan carries full paths.
+            if ($IncludePlan)
+            {
+                if ($null -eq $plan) { $plan = @() }
+                $summary | Add-Member -NotePropertyName Plan -NotePropertyValue $plan
+            }
             $summary
         }
     }
@@ -321,7 +380,12 @@ function Invoke-DLSelected
             $guard = Get-DLGuardState -Run $Run -Refresh
             if ($guard.Sids -contains $groupItems.Group[0].Group.Sid)
             {
-                foreach ($item in $groupItems.Group) { Add-DLSkip -Run $Run -Path $item.Path -Category $Entry.Id -Reason 'Process' -Detail 'guarded process started before action' }
+                foreach ($item in $groupItems.Group)
+                {
+                    $item.Outcome = 'Skipped'
+                    $item.OutcomeReason = 'Process'
+                    Add-DLSkip -Run $Run -Path $item.Path -Category $Entry.Id -Reason 'Process' -Detail 'guarded process started before action'
+                }
                 continue
             }
         }

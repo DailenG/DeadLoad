@@ -191,6 +191,7 @@ function Invoke-DLItemAction
     $category = $Run.Categories[$Item.Category]
     if (-not (Test-DLBudget -Run $Run -NextBytes $Item.Length))
     {
+        $Item.Outcome = 'Budget'
         return [pscustomobject]@{ Status = 'Budget'; FreedBytes = [int64]0 }
     }
 
@@ -198,6 +199,7 @@ function Invoke-DLItemAction
     {
         Write-DLDecision -Run $Run -Category $Item.Category -Decision 'WouldAct' -Rule $Rule -Path $Item.Path -Detail ('action={0} bytes={1}' -f $Action, $Item.Length)
         $Item.Done = $true
+        $Item.Outcome = 'WhatIf'
         return [pscustomobject]@{ Status = 'WhatIf'; FreedBytes = [int64]0 }
     }
 
@@ -212,6 +214,9 @@ function Invoke-DLItemAction
     }
 
     $Item.Done = $true
+    $Item.Outcome = $result.Status
+    $Item.FreedBytes = [int64]$result.FreedBytes
+    if ($result.PSObject.Properties['Reason']) { $Item.OutcomeReason = $result.Reason }
     if ($result.Status -in 'Acted', 'Partial')
     {
         $Run.ActedCount++
@@ -249,12 +254,12 @@ function Invoke-DLDeleteItem
             'Skipped'
             {
                 Add-DLSkip -Run $Run -Path $Item.Path -Category $Item.Category -Reason $outcome.Reason -Detail 're-check at action time'
-                return [pscustomobject]@{ Status = 'Skipped'; FreedBytes = [int64]0 }
+                return [pscustomobject]@{ Status = 'Skipped'; FreedBytes = [int64]0; Reason = $outcome.Reason }
             }
             default
             {
                 Add-DLFailure -Run $Run -Path $Item.Path -Category $Item.Category -Message $outcome.Reason
-                return [pscustomobject]@{ Status = 'Failed'; FreedBytes = [int64]0 }
+                return [pscustomobject]@{ Status = 'Failed'; FreedBytes = [int64]0; Reason = 'Failed' }
             }
         }
     }
@@ -262,21 +267,30 @@ function Invoke-DLDeleteItem
     # Folder or root: every measured file, then the directories left empty.
     $freed = [int64]0
     $kept = 0
+    $firstReason = $null
     foreach ($snapshot in $Item.Files)
     {
         $outcome = Remove-DLFile -Snapshot $snapshot -GroupRoot $Item.Group.Path -Confirm:$false
         if ($outcome.Status -eq 'Deleted') { $freed += $outcome.Bytes; continue }
         $kept++
-        if ($outcome.Status -eq 'Skipped') { Add-DLSkip -Run $Run -Path $snapshot.Path -Category $Item.Category -Reason $outcome.Reason -Detail 're-check at action time' }
-        else { Add-DLFailure -Run $Run -Path $snapshot.Path -Category $Item.Category -Message $outcome.Reason }
+        if ($outcome.Status -eq 'Skipped')
+        {
+            if (-not $firstReason) { $firstReason = $outcome.Reason }
+            Add-DLSkip -Run $Run -Path $snapshot.Path -Category $Item.Category -Reason $outcome.Reason -Detail 're-check at action time'
+        }
+        else
+        {
+            if (-not $firstReason) { $firstReason = 'Failed' }
+            Add-DLFailure -Run $Run -Path $snapshot.Path -Category $Item.Category -Message $outcome.Reason
+        }
     }
     $directories = @($Item.Directories) + @($Item.Path)
     $isRoot = ($Item.Path -eq $Item.Group.Path)
     [void](Remove-DLEmptyDirectory -Path $directories -StopRoot $Item.Group.Path -IncludeStopRoot:$isRoot -Confirm:$false)
 
     if ($kept -eq 0) { return [pscustomobject]@{ Status = 'Acted'; FreedBytes = $freed } }
-    if ($freed -gt 0) { return [pscustomobject]@{ Status = 'Partial'; FreedBytes = $freed } }
-    return [pscustomobject]@{ Status = 'Skipped'; FreedBytes = [int64]0 }
+    if ($freed -gt 0) { return [pscustomobject]@{ Status = 'Partial'; FreedBytes = $freed; Reason = $firstReason } }
+    return [pscustomobject]@{ Status = 'Skipped'; FreedBytes = [int64]0; Reason = $firstReason }
 }
 
 function Invoke-DLCompressItem

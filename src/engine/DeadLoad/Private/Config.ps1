@@ -197,7 +197,10 @@ function ConvertFrom-DLCustomTarget
     return [pscustomobject]@{
         Reason     = $null
         Definition = @{
-            Id = ('custom.{0}' -f $Name); Scope = $scope; Unit = $unit; Recurse = ($fields['Recurse'] -eq '1'); Guarded = $true
+            # D22: an administrator's own target is offered in the user's review unselected; a
+            # target whose action is not Delete is not offered at all (Test-DLReviewCategory).
+            Id = ('custom.{0}' -f $Name); Risk = 'Review'; Scope = $scope; Unit = $unit; Recurse = ($fields['Recurse'] -eq '1'); Guarded = $true
+            DisplayName = $Name; Description = ('Files your administrator added to DeadLoad ({0}).' -f $path)
             Roots = @($path); Include = $include; Custom = $true
             Settings = @{ Enabled = 1; AgeDays = $age; AgeBasis = 'Newest'; RoutineAction = $action; MinAgeHours = 24 }
         }
@@ -263,6 +266,8 @@ function Get-DLConfiguration
         $result[$name] = @($defaults[$name])
         if ($Override.ContainsKey($name)) { $result[$name] = @($Override[$name]) }
     }
+    $result['RiskTiers'] = $defaults.RiskTiers
+    if ($Override.ContainsKey('RiskTiers')) { $result['RiskTiers'] = $Override['RiskTiers'] }
 
     # Built-in definitions, then policy custom targets, unless a test replaces them all.
     $definitions = New-Object 'System.Collections.Generic.List[hashtable]'

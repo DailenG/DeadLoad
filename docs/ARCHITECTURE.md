@@ -54,6 +54,11 @@ override), **Open** (needs the owner before the phase that uses it).
 | D19 | `revit.journals` protection is age only (48 hours); the "keep newest N" protection applies to deletion under pressure (`PressureKeepNewest` 20), not to compression. | Accepted | Compression is lossless and verified before the original goes. Protecting the newest 20 from compression kept them raw past Revit's 10-day shelf life, where Revit deletes them (D18). |
 | D20 | `user.temp` is not process-guarded as a whole (a user who never closes Revit still gets temp cleanup), but while the profile's owner runs a guarded process its files matching `*revit*` or `*acad*` are protected (`GuardedPatterns`). | Accepted | One host held 7.4 GB of a running Revit session's temp files in `{Temp}`; a session left open for over a week would otherwise expose them to the 7-day rule. |
 | D21 | Desktop Connector is not a guarded process. | Accepted (measured 2026-11-03) | `DesktopConnector.Applications.Tray.exe` ran for the signed-in user on all seven hosts, so guarding on it would exempt every signed-in user from every guarded category. Its workspace is a protected path and is never entered, which is the protection SR-2 intended. |
+| D22 | Risk tiers are data. Every category in `Data\Defaults.psd1` carries `Risk` (`Routine`, `Review`, `Restricted`) beside its `Id`, with the user-facing `DisplayName` and `Description`; `RiskTiers` holds the one-sentence meaning of each tier. The ADMX explain text and the user's cleanup review both read them (one source). **Routine**: files programs recreate or no longer need (temp, Windows temp, CER crash reports, installer logs, AutoCAD error logs); offered and selected by default. **Review**: caches whose removal costs a rebuild or a download (Revit web and content caches, AutoCAD graphics cache); offered unselected. **Restricted**: records, recovery data, cloud model data, settings and installation sources (journals and journal archives, `revit.ini.journalshelf`, collaboration cache, old Revit versions, AutoCAD automatic saves, installer extracts); never offered in the review, only the scheduled runs act on them. A definition with no tier counts as Restricted; a policy custom target is Review; a machine-wide category and any category whose effective routine action is not Delete (or None, D24) are not offered either. Per-category reasons: section 7. | Accepted (design slice 3, 2026-11-04) | Design system risk taxonomy; IMPLEMENTATION-PLAN decision 4. Recovery data (`*.sv$`) and anything Autodesk documents as records or unsynchronized work must never sit one click from deletion, while a rebuildable cache is the user's informed choice. |
+| D23 | Clean deletes only what was reviewed. `Invoke-DeadLoadAnalysis` (Analyze) runs a report-only User run and writes the item list to `%LOCALAPPDATA%\DeadLoad\analysis.json`; `Invoke-DeadLoadCleanup` (Clean) runs the engine again over the named categories with `-ReviewedItem` and deletes only the intersection: items the fresh plan selects AND the analysis lists with the same size and write time (a fingerprint). Everything else is untouched: an item added since Analyze is not deleted (inside a folder item too: only the reviewed files of the folder are deleted); an item changed, used again, locked or now protected is skipped and reported with its reason. Deletion goes through the existing planner, protection and `Remove-DLFile` primitive; there is no second deletion path. A request naming a Restricted, machine-wide, disabled, unknown or unavailable category, or a missing or different (`-AnalysisId`) analysis, is refused as a whole and nothing is deleted. Because the fresh plan is the bound, an edited analysis file cannot widen a cleanup. `Tray.AllowCleanTemp` gates Analyze and Clean as it gates CleanTemp. | Accepted (design slice 3, 2026-11-04) | IMPLEMENTATION-PLAN decision 3; the user consents to a reviewed list, not to whatever matches a rule at the moment Clean runs. |
+| D24 | Review run semantics (User mode with `-Category`): deletion only; a pressure-only category (`RoutineAction None`, PacCache D9) is offered at its `PressureAgeDays` (the age it is given up under pressure) with the Newest basis; `Tray.CleanTempMinAgeDays` raises a non-zero `AgeDays` and is applied as protection (`MinAgeHours` at least that many days), so no rule can select a newer item; `ActivateBelow*`, budgets, guards and protections apply as in any run; no pressure phase; current profile only. | Accepted (design slice 3, 2026-11-04) | The user's own request should not wait for pressure, but must not reach past what an administrator would give up under pressure. |
+| D25 | Restricted categories never take part in any user-started cleanup: not in the review (D22) and not in "Clean my temp files" (`CleanTemp`, User mode without `-Category`). The engine skips a Restricted (or untiered) category in every User run whatever its `UserAction` flag, and `autocad.recovery` no longer carries `UserAction`, so `CleanTemp` runs `user.temp` only by default. | Accepted (owner, 2026-11-04) | Recovery data and records are never one click from deletion, from any entry point. |
+| D26 | `analysis.json` and `last-cleanup.json` hold the user's own full paths (the review must show them) and live only in the user's own `%LOCALAPPDATA%\DeadLoad`. The per-item plan (`Invoke-DeadLoad -IncludePlan`) is added to the returned summary only after the run report and events are written, so `runs\<runId>.json`, `last-user-action.json` and the event log keep the profile aliases (section 10). | Accepted (design slice 3, 2026-11-04) | Reports that may be collected centrally never carry user names; the user's own review file is theirs. |
 
 ## 3. Repository layout
 
@@ -83,6 +88,7 @@ Installed layout:
 %ProgramFiles%\DeadLoad\policy\DeadLoad.admx, en-US\DeadLoad.adml
 %ProgramData%\DeadLoad\  last-run.json  runs\<runId>.json  logs\deadload-YYYYMMDD.log
 %LOCALAPPDATA%\DeadLoad\ last-user-action.json  logs\   (tray / user-context actions)
+                         analysis.json  last-cleanup.json   (cleanup review, D23, D26)
 ```
 
 `%ProgramData%\DeadLoad` is created by the installer with a protected ACL: SYSTEM and
@@ -96,6 +102,9 @@ Public commands (module `DeadLoad`):
 | Command | Purpose |
 |---|---|
 | `Invoke-DeadLoad -Mode Maintenance\|PressureCheck\|OnDemand\|User [-ReportOnly] [-Category <id[]>] [-WhatIf]` | One run. Returns exactly one `DeadLoad.RunSummary` object. Test-only parameters `-Configuration` and `-DataRoot` inject config and redirect state. |
+| `Invoke-DeadLoad ... -Mode User -Category <id[]> [-IncludePlan] [-ReviewedItem <hashtable>]` | The user's cleanup review run (D22 to D24). `-IncludePlan` adds the per-item `Plan` to the returned summary only (D26). |
+| `Invoke-DeadLoadAnalysis [-Path <file>]` | Analyze (D23): report-only review of the current profile; writes and returns `analysis.json` (docs/design/ENGINE-UI-CONTRACT.md). |
+| `Invoke-DeadLoadCleanup -Category <id[]> [-AnalysisPath <file>] [-AnalysisId <id>]` | Clean (D23): deletes the reviewed intersection; writes and returns `last-cleanup.json`. |
 | `Get-DeadLoadConfiguration [-Trace]` | Effective configuration; `-Trace` returns one row per setting with `Name`, `Value`, `Source` (`Policy`, `Local`, `Default`). |
 | `Get-DeadLoadStatus` | Free space, pressure state, last run summary (reads `last-run.json`; does not scan). |
 | `Export-DeadLoadSupportBundle [-Days 7] [-Destination <dir>]` | Current user: zip journals, worker logs, dumps, AutoCAD error logs and CER reports from the last N days. Read-shares open files. Returns the zip `FileInfo`. |
@@ -108,7 +117,7 @@ Modes:
 | Maintenance | SYSTEM | Routine rules for every enabled category, then pressure tiers if below the floor. |
 | PressureCheck | SYSTEM | Exits quickly unless below the floor; then pressure tiers until the target. |
 | OnDemand | SYSTEM | The policy-defined `OnDemandMode` (default Maintenance). Takes no input from the user. |
-| User | current user | Current profile only, categories with `UserAction = $true` (`user.temp`, `autocad.recovery`), age floor `Tray.CleanTempMinAgeDays`. |
+| User | current user | Current profile only, categories with `UserAction = $true` that are not Restricted (`user.temp`; D25), age floor `Tray.CleanTempMinAgeDays`. With `-Category`: the cleanup review (D22 to D24), only Routine and Review categories of the user's own profile that delete. |
 
 Internal pipeline: resolve config, enumerate profiles (`ProfileList`, SIDs `S-1-5-21-*` and
 `S-1-12-1-*`), resolve roots, scan, plan (protect, routine, pressure), act, report. The plan
@@ -198,23 +207,36 @@ Evidence: M = measured on a workstation, D = Autodesk documentation, C = candida
 MEASUREMENTS.md, hosts A to G measured 2026-11-03). Ship rule: a category ships **enabled** only
 when its paths are M; an M category may still ship off for the reason given.
 
-| ID | Scope | Root(s) | Unit | Protect | Routine | Pressure (tier: action, age, keep) | Default | Evidence |
-|---|---|---|---|---|---|---|---|---|
-| `revit.journals` | User | `{LocalAppData}\Autodesk\Revit\Autodesk Revit *\Journals` (top level only) | File | 48 h (D19) | Compress after 3 d (Modified) into `Archive\journals-YYYY-MM.zip` | 5: Delete, 2 d, keep newest 20 | On | M (2015 to 2026) |
-| `revit.journals.archive` | User | `...\Journals\Archive\*.zip` | File | newest 1 | Delete after 180 d | 1: Delete, 30 d | On | design (created by DeadLoad) |
-| `revit.webcache` | User | `...\Autodesk Revit *\CefCache`, `...\Autodesk Revit *\WebBrowserControl` | File | 24 h | Delete after 14 d (Newest) | 2: Delete, 3 d | On | M (CefCache 2023 to 2025, WebBrowserControl 2026) |
-| `revit.paccache` | User | `{LocalAppData}\Autodesk\Revit\PacCache` (keep `Logs\`, `*.json`) | File | 24 h | none (D9) | 3: Delete, 7 d | On | M |
-| `revit.collabcache` | User | `{LocalAppData}\Autodesk\Revit\Autodesk Revit *\CollaborationCache\*` (hub folders; items are project folders) | Folder (project) | 90 d | none | 6: Delete, 90 d | Off (D7) | M (2023 to 2026) |
-| `revit.oldversions` | User | `{LocalAppData}\Autodesk\Revit\Autodesk Revit <year>` for years not installed (excl. `CollaborationCache\`) | Root | 30 d | Delete after 90 d | 2: Delete, 30 d | Off | M: measured folders hold only journals, dumps and model backups; `revit.journals` already treats those journals as records (compress, archive, expire), and a whole-folder delete is the owner's records decision |
-| `revit.ini.journalshelf` | User | `{AppData}\Autodesk\Revit\Autodesk Revit *\Revit.ini` `[Backups]` | setting | guarded | Raise `JournalShelfLife` to at least 14 d, `JournalShelfCapacity` to at least 10 | n/a | On (D18) | M (path, absence of keys, pruning), D (semantics) |
-| `autocad.graphicscache` | User | `{LocalAppData}\Autodesk\AutoCAD *\R*\*\GraphicsCache`, `{LocalAppData}\Autodesk\C3D *\*\GraphicsCache` | File | 24 h | Delete after 30 d | 2: Delete, 7 d | Off | M (parent folder; at most 34 MB of `*.acdsgccache` per user and year), D (folder name): too small to justify a default rule |
-| `autocad.recovery` | User | `{Temp}` top level: `*.sv$`, `*.ac$` | File | 72 h | Delete after 30 d | 2: Delete, 7 d | Off | D (`*.sv$` none found; `*.ac$` found, 0 bytes) |
-| `autocad.errorlogs` | User | `{Temp}` and `{LocalAppData}\CrashDumps`: `acad*.err`, `acadstk*.dmp`, `acad*.dmp` | File | 24 h | Delete after 30 d | 2: Delete, 7 d | Off | D (none found; `CrashDumps` is capped at 10 dumps by Windows Error Reporting) |
-| `autodesk.cer` | User | `{LocalAppData}\Autodesk\CER` (items: the `<hash>` crash-signature folders) | Folder | 24 h, newest 5 | Delete after 30 d (Newest) | 2: Delete, 7 d | On | M (up to 329 MB per profile) |
-| `autodesk.installlogs` | User | `{LocalAppData}\Autodesk\ODIS`: `*.log`, `*.log.*` (excluding `IHT\`) | File | 24 h, newest 5 | Delete after 90 d (Modified) | 2: Delete, 30 d | On | M (up to 365 MB per profile, mostly over 90 d) |
-| `autodesk.installers` | Machine | `{SystemDrive}\Autodesk\*` (never `Network License Manager`, never an `InstallSource`) | Folder | 90 d | none | 4: Delete, 90 d | Off (D8) | M (`WI`, `Access`; 1 to 3 `InstallSource` references per host) |
-| `user.temp` | User | `{Temp}` (excluding patterns owned by `autocad.*`) | File | 24 h; `*revit*`, `*acad*` while the owner runs a guarded process (D20) | Delete after 7 d | 2: Delete, 1 d | On | M |
-| `windows.temp` | Machine | `{WindowsTemp}` | File | 24 h | Delete after 7 d | 2: Delete, 1 d | On | M |
+| ID | Scope | Risk (D22) | Root(s) | Unit | Protect | Routine | Pressure (tier: action, age, keep) | Default | Evidence |
+|---|---|---|---|---|---|---|---|---|---|
+| `revit.journals` | User | Restricted | `{LocalAppData}\Autodesk\Revit\Autodesk Revit *\Journals` (top level only) | File | 48 h (D19) | Compress after 3 d (Modified) into `Archive\journals-YYYY-MM.zip` | 5: Delete, 2 d, keep newest 20 | On | M (2015 to 2026) |
+| `revit.journals.archive` | User | Restricted | `...\Journals\Archive\*.zip` | File | newest 1 | Delete after 180 d | 1: Delete, 30 d | On | design (created by DeadLoad) |
+| `revit.webcache` | User | Review | `...\Autodesk Revit *\CefCache`, `...\Autodesk Revit *\WebBrowserControl` | File | 24 h | Delete after 14 d (Newest) | 2: Delete, 3 d | On | M (CefCache 2023 to 2025, WebBrowserControl 2026) |
+| `revit.paccache` | User | Review | `{LocalAppData}\Autodesk\Revit\PacCache` (keep `Logs\`, `*.json`) | File | 24 h | none (D9) | 3: Delete, 7 d | On | M |
+| `revit.collabcache` | User | Restricted | `{LocalAppData}\Autodesk\Revit\Autodesk Revit *\CollaborationCache\*` (hub folders; items are project folders) | Folder (project) | 90 d | none | 6: Delete, 90 d | Off (D7) | M (2023 to 2026) |
+| `revit.oldversions` | User | Restricted | `{LocalAppData}\Autodesk\Revit\Autodesk Revit <year>` for years not installed (excl. `CollaborationCache\`) | Root | 30 d | Delete after 90 d | 2: Delete, 30 d | Off | M: measured folders hold only journals, dumps and model backups; `revit.journals` already treats those journals as records (compress, archive, expire), and a whole-folder delete is the owner's records decision |
+| `revit.ini.journalshelf` | User | Restricted | `{AppData}\Autodesk\Revit\Autodesk Revit *\Revit.ini` `[Backups]` | setting | guarded | Raise `JournalShelfLife` to at least 14 d, `JournalShelfCapacity` to at least 10 | n/a | On (D18) | M (path, absence of keys, pruning), D (semantics) |
+| `autocad.graphicscache` | User | Review | `{LocalAppData}\Autodesk\AutoCAD *\R*\*\GraphicsCache`, `{LocalAppData}\Autodesk\C3D *\*\GraphicsCache` | File | 24 h | Delete after 30 d | 2: Delete, 7 d | Off | M (parent folder; at most 34 MB of `*.acdsgccache` per user and year), D (folder name): too small to justify a default rule |
+| `autocad.recovery` | User | Restricted | `{Temp}` top level: `*.sv$`, `*.ac$` | File | 72 h | Delete after 30 d | 2: Delete, 7 d | Off | D (`*.sv$` none found; `*.ac$` found, 0 bytes) |
+| `autocad.errorlogs` | User | Routine | `{Temp}` and `{LocalAppData}\CrashDumps`: `acad*.err`, `acadstk*.dmp`, `acad*.dmp` | File | 24 h | Delete after 30 d | 2: Delete, 7 d | Off | D (none found; `CrashDumps` is capped at 10 dumps by Windows Error Reporting) |
+| `autodesk.cer` | User | Routine | `{LocalAppData}\Autodesk\CER` (items: the `<hash>` crash-signature folders) | Folder | 24 h, newest 5 | Delete after 30 d (Newest) | 2: Delete, 7 d | On | M (up to 329 MB per profile) |
+| `autodesk.installlogs` | User | Routine | `{LocalAppData}\Autodesk\ODIS`: `*.log`, `*.log.*` (excluding `IHT\`) | File | 24 h, newest 5 | Delete after 90 d (Modified) | 2: Delete, 30 d | On | M (up to 365 MB per profile, mostly over 90 d) |
+| `autodesk.installers` | Machine | Restricted | `{SystemDrive}\Autodesk\*` (never `Network License Manager`, never an `InstallSource`) | Folder | 90 d | none | 4: Delete, 90 d | Off (D8) | M (`WI`, `Access`; 1 to 3 `InstallSource` references per host) |
+| `user.temp` | User | Routine | `{Temp}` (excluding patterns owned by `autocad.*`) | File | 24 h; `*revit*`, `*acad*` while the owner runs a guarded process (D20) | Delete after 7 d | 2: Delete, 1 d | On | M |
+| `windows.temp` | Machine | Routine | `{WindowsTemp}` | File | 24 h | Delete after 7 d | 2: Delete, 1 d | On | M |
+
+Risk (D22), per category: `user.temp`, `windows.temp`, `autodesk.cer`, `autodesk.installlogs` and
+`autocad.errorlogs` are **Routine**: leftovers and diagnostics nothing reads again once they are
+past their age, with the newest crash reports and installer logs protected. `revit.webcache`,
+`revit.paccache` and `autocad.graphicscache` are **Review**: caches the product rebuilds or
+downloads again, so removing them costs time on the next start or open (and a download for
+PacCache). **Restricted**: `revit.journals` and `revit.journals.archive` (support records that
+can hold model backups, D16, compressed and expired by the scheduled runs), `revit.ini.journalshelf`
+(a setting change, not files), `revit.collabcache` (can hold saved but unsynchronized cloud work,
+D7), `revit.oldversions` (a records decision, see its row), `autocad.recovery` (automatic saves
+that recover a drawing after a crash) and `autodesk.installers` (updates, repairs and reinstalls
+may need them, D8; also machine-wide). `windows.temp` is Routine but machine-wide, so it is never
+in a user's review either.
 
 Machine defaults (D10): floor 5 % or 30 GB, target 8 % or 45 GB (larger of each pair, in
 bytes); time budget 20 min; no byte cap; 100,000 items per run; Maintenance weekly Sunday 03:00
@@ -280,6 +302,7 @@ logs to file only and the summary says so).
 | 4000 | Info | OnDemand run requested |
 | 4001 | Info | User temp cleanup (tray) |
 | 4002 | Info | Support bundle created (tray) |
+| 4003 | Info | User cleanup review (tray Clean): result, categories, deleted, skipped, freed bytes |
 
 `last-run.json` (also returned as the run summary object):
 
@@ -325,11 +348,14 @@ off. Reads `%ProgramData%\DeadLoad\last-run.json` and tray policy; polls free sp
 
 | Action | Mechanism |
 |---|---|
+| Open DeadLoad (bold default item; double-click on the icon) | The DeadLoad window (`src/tray/Ui`): Cleanup, Details, History, Settings, About; one instance; notes and QA in `docs/design/UI-NOTES.md` |
 | Clean my temp files | `powershell.exe ... -File engine\Invoke-DeadLoadUserAction.ps1 -Action CleanTemp`; JSON result on stdout |
-| Request a cleanup | Starts `\DeadLoad\OnDemand` via `Schedule.Service` |
+| Request a cleanup | Starts `\DeadLoad\OnDemand` via `Schedule.Service` (menu and the window's "This computer" card share the watch for the finished run) |
 | Collect my logs for support | `-Action CollectLogs`; zip to Desktop or `SupportShare`; shows the path |
+| Analyze, Review, Clean (DeadLoad window) | `-Action Analyze`, then `-Action Clean -Categories <ids> -AnalysisId <id>`; contract in `docs/design/ENGINE-UI-CONTRACT.md`; gated by `AllowCleanTemp` (D23) |
+| Settings page (DeadLoad window) | `-Action Configuration`: `Get-DeadLoadConfiguration -Trace` written to `%LOCALAPPDATA%\DeadLoad\configuration.json`; read-only; not gated (contract section 10) |
 | Open my journals folder | Newest `%LOCALAPPDATA%\Autodesk\Revit\Autodesk Revit <year>\Journals` |
-| View last report | Read-only window over `last-run.json` |
+| View last report | The DeadLoad window's Details page: `last-run.json` per category, the user's `last-cleanup.json`, raw JSON on request |
 
 Notifications: low disk (below `NotifyBelowGB`/`Percent`, at most every 4 h), cleanup completed
 (when `last-run.json` changes and `NotifyOnCompletion`).

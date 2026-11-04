@@ -209,6 +209,10 @@ function New-DLItem
         Selected      = $false
         SelectRule    = $null
         Done          = $false
+        # What happened to the item (Invoke-DLItemAction); read by the plan output only.
+        Outcome       = $null
+        OutcomeReason = $null
+        FreedBytes    = [int64]0
     }
 }
 

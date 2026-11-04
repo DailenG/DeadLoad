@@ -16,6 +16,8 @@ foreach ($folder in 'Private', 'Public')
 
 Export-ModuleMember -Function @(
     'Invoke-DeadLoad'
+    'Invoke-DeadLoadAnalysis'
+    'Invoke-DeadLoadCleanup'
     'Get-DeadLoadConfiguration'
     'Get-DeadLoadStatus'
     'Export-DeadLoadSupportBundle'

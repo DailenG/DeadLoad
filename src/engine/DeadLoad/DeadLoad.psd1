@@ -8,7 +8,7 @@
     Description          = 'Manages disk space used by Autodesk Revit and AutoCAD on Windows workstations: retention for journals, caches, crash data and temp files, safe to run as SYSTEM.'
     PowerShellVersion    = '5.1'
     CompatiblePSEditions = @('Desktop', 'Core')
-    FunctionsToExport    = @('Invoke-DeadLoad', 'Get-DeadLoadConfiguration', 'Get-DeadLoadStatus', 'Export-DeadLoadSupportBundle', 'Sync-DeadLoadSchedule')
+    FunctionsToExport    = @('Invoke-DeadLoad', 'Invoke-DeadLoadAnalysis', 'Invoke-DeadLoadCleanup', 'Get-DeadLoadConfiguration', 'Get-DeadLoadStatus', 'Export-DeadLoadSupportBundle', 'Sync-DeadLoadSchedule')
     CmdletsToExport      = @()
     VariablesToExport    = @()
     AliasesToExport      = @()
