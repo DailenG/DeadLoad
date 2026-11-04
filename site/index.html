@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeadLoad - Remove the Digital Dead Load</title>
+  <meta name="description" content="DeadLoad manages the disk space Autodesk Revit and AutoCAD use on Windows workstations: unattended, configured by Group Policy, with every decision logged. Open source, GPL-3.0.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/brand/deadload-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/brand/deadload-180.png">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 16 16"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+      <symbol id="i-storage" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 7h.01M7 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16M7 16v-5M12 16V7M17 16v-8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="./" aria-label="DeadLoad home">
+        <picture>
+          <source srcset="assets/brand/deadload-mark-onDark.svg" media="(prefers-color-scheme: dark)">
+          <img src="assets/brand/deadload-mark.svg" alt="" width="32" height="32">
+        </picture>
+        <span>DeadLoad</span>
+      </a>
+      <nav aria-label="Primary">
+        <ul class="nav">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#how-it-works">How it works</a></li>
+          <li><a href="#safety">Safety</a></li>
+          <li><a href="policy.html">Policy generator</a></li>
+          <li><a href="https://github.com/DailenG/DeadLoad">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <span class="eyebrow">For Revit and AutoCAD workstations</span>
+          <h1 id="hero-title">Remove the Digital Dead Load.</h1>
+          <p class="lead">Reclaim storage, reduce system clutter, and keep your engineering workstation running efficiently.</p>
+          <p>In structural engineering the dead load is the permanent weight a structure carries. DeadLoad removes the dead load Autodesk products leave on Windows workstations, and keeps the records worth keeping.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#install">Get DeadLoad</a>
+            <a class="btn btn-secondary" href="https://github.com/DailenG/DeadLoad">View on GitHub</a>
+          </div>
+          <p class="note">Pre-release. No public release yet: build it from source and install it from your own Chocolatey feed.</p>
+        </div>
+
+        <div class="hero-visual">
+          <svg class="linework" viewBox="0 0 640 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+            <g fill="none" stroke="currentColor" stroke-width="1" opacity="0.55">
+              <path d="M20 40H620M20 480H620M40 20V500M600 20V500"/>
+              <path d="M40 40L600 480M600 40L40 480" stroke-dasharray="4 6" opacity="0.5"/>
+              <path d="M40 260H600" stroke-dasharray="2 6"/>
+              <path d="M320 20V500" stroke-dasharray="2 6"/>
+            </g>
+            <g fill="none" stroke="currentColor" stroke-width="1" opacity="0.8">
+              <path d="M30 40H50M30 480H50M590 40H610M590 480H610"/>
+              <path d="M40 30V50M600 30V50M40 470V490M600 470V490"/>
+            </g>
+          </svg>
+          <figure class="illustration">
+            <span class="illustration-tag">Illustration</span>
+            <div class="mock">
+              <div class="mock-titlebar">
+                <img src="assets/brand/favicon.svg" alt="" width="16" height="16">
+                <span>DeadLoad</span>
+                <span class="controls" aria-hidden="true">- &#9633; x</span>
+              </div>
+              <div class="mock-body">
+                <div class="mock-nav" aria-hidden="true">
+                  <span class="is-current">Cleanup</span>
+                  <span>Details</span>
+                  <span>History</span>
+                  <span>Settings</span>
+                  <span>About</span>
+                </div>
+                <div class="mock-main">
+                  <span class="mock-title">System Cleanup</span>
+                  <span class="mock-sub">Find and review unnecessary files before removing them.</span>
+                  <div class="mock-metric"><strong>4.2 GB</strong><span>potentially reclaimable (example value)</span></div>
+                  <span class="mock-meta">Estimated from the last analysis. Space actually recovered is shown after cleanup.</span>
+                  <div class="mock-row">
+                    <span class="mock-check is-checked"><svg width="12" height="12" aria-hidden="true"><use href="#i-check"/></svg></span>
+                    <span>Temporary files</span>
+                    <span class="size">2.1 GB</span>
+                    <span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span>
+                  </div>
+                  <div class="mock-row">
+                    <span class="mock-check is-checked"><svg width="12" height="12" aria-hidden="true"><use href="#i-check"/></svg></span>
+                    <span>Autodesk crash reports</span>
+                    <span class="size">0.3 GB</span>
+                    <span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span>
+                  </div>
+                  <div class="mock-row">
+                    <span class="mock-check"></span>
+                    <span>Revit web cache</span>
+                    <span class="size">1.6 GB</span>
+                    <span class="risk risk-review"><svg aria-hidden="true"><use href="#i-eye"/></svg>Review</span>
+                  </div>
+                  <div class="mock-row">
+                    <span class="mock-check is-checked"><svg width="12" height="12" aria-hidden="true"><use href="#i-check"/></svg></span>
+                    <span>Autodesk installer logs</span>
+                    <span class="size">0.2 GB</span>
+                    <span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span>
+                  </div>
+                  <div class="mock-actions" aria-hidden="true">
+                    <span class="secondary">Analyze Again</span>
+                    <span class="primary">Review Cleanup</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption>Illustration of the planned DeadLoad window, which is in development. Sizes are example values, not measurements.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="features" aria-labelledby="features-title">
+      <div class="container">
+        <div class="section-intro">
+          <span class="eyebrow">Features</span>
+          <h2 id="features-title">Less overhead. More capacity.</h2>
+          <p class="lead">A transparent Windows cleanup utility that helps identify and remove unnecessary files without putting engineering work at risk.</p>
+        </div>
+        <div class="grid grid-4">
+          <article class="card">
+            <svg class="icon" aria-hidden="true"><use href="#i-storage"/></svg>
+            <h3>Reclaim storage</h3>
+            <p>Removes temp files, web caches, crash reports and old installer logs past their age limits, and compresses Revit journals into monthly archives.</p>
+          </article>
+          <article class="card">
+            <svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>
+            <h3>Clear visibility</h3>
+            <p>Every item decision goes to the run log with the rule behind it. Report-only mode plans every category and changes nothing.</p>
+          </article>
+          <article class="card">
+            <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+            <h3>Configurable by policy</h3>
+            <p>Every setting has a Group Policy template. Policy wins over local settings, which win over the shipped defaults, and each effective value shows its source.</p>
+          </article>
+          <article class="card">
+            <svg class="icon" aria-hidden="true"><use href="#i-chart"/></svg>
+            <h3>Measured results</h3>
+            <p>The defaults come from measurements on seven engineering workstations. Space recovered is counted from confirmed deletions, not estimated.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how-it-works" aria-labelledby="how-title">
+      <div class="container">
+        <div class="section-intro">
+          <span class="eyebrow">How it works</span>
+          <h2 id="how-title">Analyze, review, clean.</h2>
+          <p>DeadLoad runs unattended as SYSTEM from its own scheduled tasks, so no one has to remember to run it. You decide how much it may do before it does anything.</p>
+        </div>
+        <ol class="steps grid grid-3">
+          <li class="card">
+            <h3>Analyze</h3>
+            <p>A report-only run scans every enabled category and plans what it would delete, compress or keep, and why. It changes nothing.</p>
+          </li>
+          <li class="card">
+            <h3>Review</h3>
+            <p>Read the plan before anything is removed: the run log names the rule behind each decision, and users see the last report in the tray app. Keep report-only on for a pilot week.</p>
+            <p class="note">An interactive review window for a user's own files <span class="status">In development</span></p>
+          </li>
+          <li class="card">
+            <h3>Clean</h3>
+            <p>As SYSTEM: weekly maintenance (Sunday 03:00 by default), a daily disk pressure check that also runs on low-disk events, and an on-demand task users may start but not change. Users can clean their own temp files from the tray without admin rights.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="examines" aria-labelledby="examines-title">
+      <div class="container">
+        <div class="section-intro">
+          <span class="eyebrow">What it examines</span>
+          <h2 id="examines-title">Built-in categories, with their limits.</h2>
+          <p>A category ships enabled only when its paths were measured on real workstations. Each one has a risk tier that decides how a user's cleanup review will offer it: <span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span> files programs recreate or no longer need, selected by default; <span class="risk risk-review"><svg aria-hidden="true"><use href="#i-eye"/></svg>Review</span> offered but not selected, since removing them can cause reprocessing or a download; <span class="risk risk-restricted"><svg aria-hidden="true"><use href="#i-lock"/></svg>Restricted</span> never offered to users, left to the scheduled runs as policy configures.</p>
+        </div>
+
+        <h3>On by default</h3>
+        <div class="table-wrap">
+          <table>
+            <caption class="visually-hidden">Categories enabled by default</caption>
+            <thead>
+              <tr><th scope="col">Category</th><th scope="col">Default rule</th><th scope="col">Tier</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Windows temporary files</td><td>Deleted after 7 days; nothing newer than 24 hours.</td><td><span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span></td></tr>
+              <tr><td>User temporary files</td><td>Deleted after 7 days. Files of a Revit or AutoCAD session that is still running are kept.</td><td><span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span></td></tr>
+              <tr><td>Revit web cache</td><td>Deleted after 14 days. Revit rebuilds it.</td><td><span class="risk risk-review"><svg aria-hidden="true"><use href="#i-eye"/></svg>Review</span></td></tr>
+              <tr><td>Revit content cache (PacCache)</td><td>No routine rule: Revit manages its size. Given up only under disk pressure, keeping its Logs folder and .json files. Revit downloads content again when it is needed.</td><td><span class="risk risk-review"><svg aria-hidden="true"><use href="#i-eye"/></svg>Review</span></td></tr>
+              <tr><td>Revit journals</td><td>Compressed after 3 days into monthly archives; each entry is verified before the original is deleted. Archives are deleted after 180 days. Under disk pressure only, older journals go, keeping the newest 20. Revit's own journal retention is raised to 14 days so Revit does not delete what DeadLoad keeps.</td><td><span class="risk risk-restricted"><svg aria-hidden="true"><use href="#i-lock"/></svg>Restricted</span></td></tr>
+              <tr><td>Autodesk crash reports (CER)</td><td>Deleted after 30 days; the newest 5 are kept.</td><td><span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span></td></tr>
+              <tr><td>Autodesk installer logs</td><td>Deleted after 90 days; the newest 5 are kept.</td><td><span class="risk risk-routine"><svg aria-hidden="true"><use href="#i-check"/></svg>Routine</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top: var(--dl-space-6)">Off by default, and why</h3>
+        <div class="table-wrap">
+          <table>
+            <caption class="visually-hidden">Categories disabled by default</caption>
+            <thead>
+              <tr><th scope="col">Category</th><th scope="col">Why it is off</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Revit collaboration cache</td><td>Removing it can lose changes that were saved but not yet synchronized. When enabled: under disk pressure only, per project folder, untouched for 90 days.</td></tr>
+              <tr><td>Data of Revit versions no longer installed</td><td>The measured folders hold journals and model backups; deleting a whole folder is a records decision for the owner.</td></tr>
+              <tr><td>Autodesk installation files (C:\Autodesk)</td><td>Updates, repairs and reinstalls may need them. When enabled: never Network License Manager, never a folder an installed product names as its install source.</td></tr>
+              <tr><td>AutoCAD graphics cache</td><td>Measured at most 34 MB per user and year: too small to justify a default rule.</td></tr>
+              <tr><td>AutoCAD automatic save files and error logs</td><td>Documented paths with almost nothing found on the measured workstations. Automatic save files can recover a drawing after a crash.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note" style="margin-top: var(--dl-space-4)">Civil 3D is not supported: it was not measured. Under disk pressure (free space below the larger of 30 GB and 5 percent), pressure tiers give up the oldest eligible items until free space reaches the larger of 45 GB and 8 percent. Administrators can add custom targets, only under an allowlist of folders.</p>
+      </div>
+    </section>
+
+    <section class="section" id="safety" aria-labelledby="safety-title">
+      <div class="container">
+        <div class="section-intro">
+          <span class="eyebrow">Safety and transparency</span>
+          <h2 id="safety-title">Built to run as SYSTEM on production workstations.</h2>
+        </div>
+        <div class="grid grid-2">
+          <article class="card">
+            <h3>Review before delete</h3>
+            <p>Report-only mode and <code>-WhatIf</code> produce the full plan and change nothing. Run a pilot in report-only first.</p>
+          </article>
+          <article class="card">
+            <h3>Protected data types and folders</h3>
+            <p>Never acted on: <code>*.rvt *.rfa *.rte *.rft *.dwg *.dwt *.dws *.dxf *.bak *.nwd *.nwf *.nwc *.ifc *.pdf</code>. Never entered: Documents, Desktop, OneDrive, and Autodesk Desktop Connector, ACC Docs and BIM 360 workspaces.</p>
+          </article>
+          <article class="card">
+            <h3>Process guard</h3>
+            <p>While a user runs Revit, AutoCAD, Navisworks or DWG TrueView, DeadLoad skips that user's Autodesk categories. Locked files are skipped, and every file is checked again right before it is acted on.</p>
+          </article>
+          <article class="card">
+            <h3>No reparse points, no network</h3>
+            <p>Junctions, symbolic links, mount points and cloud placeholders are never traversed or deleted, at any depth. The engine makes no HTTP calls; its targets ship in the package and nothing is downloaded at run time.</p>
+          </article>
+          <article class="card">
+            <h3>Logs and events</h3>
+            <p>Each run writes a log naming the rule behind every decision, a JSON report a monitoring tool can read, and Windows events under the source DeadLoad (Application log).</p>
+          </article>
+          <article class="card">
+            <h3>Open source</h3>
+            <p>Every line is on GitHub under GPL-3.0, including the safety tests that run on Windows PowerShell 5.1 and PowerShell 7.</p>
+          </article>
+        </div>
+        <div class="callout" role="note">
+          <strong>Deletion is permanent.</strong> DeadLoad has no quarantine and no undo. What it deletes is gone, so it acts only on items past their limits, never on protected data, and logs each one.
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="admins" aria-labelledby="admins-title">
+      <div class="container">
+        <div class="section-intro">
+          <span class="eyebrow">For IT administrators</span>
+          <h2 id="admins-title">One package, one policy, nothing to babysit.</h2>
+        </div>
+        <div class="grid grid-2">
+          <article class="card">
+            <h3>Group Policy</h3>
+            <p>ADMX and ADML templates cover every setting: machine policy for the engine and the tray, user policy for the tray. <code>Get-DeadLoadConfiguration -Trace</code> shows each effective value and whether it came from policy, a local setting or the default.</p>
+            <p><a href="policy.html">Open the policy generator</a> or read the <a href="https://github.com/DailenG/DeadLoad/blob/main/docs/RECOMMENDED-POLICY.md">recommended policy</a>.</p>
+          </article>
+          <article class="card">
+            <h3>Chocolatey</h3>
+            <p>Install, upgrade and uninstall need no restart. Parameters: <code>/NoTray</code>, <code>/ReportOnly</code>, <code>/InstallAdmxLocally</code>, and <code>/PurgeData</code> on uninstall.</p>
+          </article>
+          <article class="card">
+            <h3>Signed</h3>
+            <p>The build signs every script, module, data file and binary when Authenticode signing is configured. A signed engine refuses to run when a file changed after signing.</p>
+          </article>
+          <article class="card">
+            <h3>Monitoring</h3>
+            <p>Alert on event 1001 at Error, 2002 (pressure target not reachable), 3000 (run error) and 3003 (integrity check failed), and on a stale <code>last-run.json</code>.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="install" aria-labelledby="install-title">
+      <div class="container">
+        <div class="section-intro">
+          <span class="eyebrow">Install</span>
+          <h2 id="install-title">Get DeadLoad</h2>
+          <p><strong>No public release yet.</strong> DeadLoad is pre-release. Build the Chocolatey package from source and install it from your own feed or folder. Try it on a test machine first.</p>
+        </div>
+        <div class="grid grid-2">
+          <div>
+            <h3>1. Build</h3>
+<pre class="wrap"><code>git clone https://github.com/DailenG/DeadLoad.git
+cd DeadLoad
+pwsh -NoProfile -File build\Build.ps1</code></pre>
+            <p class="note">Needs PowerShell 7, the .NET 8 SDK (for the tray) and Chocolatey (to pack). Without signing configured the build is an unsigned development build and says so.</p>
+          </div>
+          <div>
+            <h3>2. Install</h3>
+<pre class="wrap"><code>choco install deadload --source &lt;folder or feed&gt; -y --params "'/ReportOnly'"</code></pre>
+            <p class="note">Runs on Windows 10 21H2 or later and Windows 11, with Windows PowerShell 5.1 and .NET Framework 4.8. Full steps: <a href="https://github.com/DailenG/DeadLoad/blob/main/docs/OPERATIONS.md">OPERATIONS.md</a>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <p class="brand">
+          <picture>
+            <source srcset="assets/brand/deadload-mark-onDark.svg" media="(prefers-color-scheme: dark)">
+            <img src="assets/brand/deadload-mark.svg" alt="" width="24" height="24">
+          </picture>
+          <span>DeadLoad</span>
+        </p>
+        <p class="note">Licensed under GPL-3.0. This site loads no third-party scripts, fonts or trackers.</p>
+      </div>
+      <nav aria-label="Footer">
+        <ul>
+          <li><a href="https://github.com/DailenG/DeadLoad">Source</a></li>
+          <li><a href="https://github.com/DailenG/DeadLoad#readme">Docs</a></li>
+          <li><a href="https://github.com/DailenG/DeadLoad/issues">Issues</a></li>
+          <li><a href="https://github.com/DailenG/DeadLoad/blob/main/LICENSE">License (GPL-3.0)</a></li>
+          <li><a href="policy.html">Policy generator</a></li>
+        </ul>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

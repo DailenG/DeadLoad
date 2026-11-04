@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Policy generator - DeadLoad</title>
+  <meta name="description" content="Generate DeadLoad Group Policy values: a PowerShell script for a GPO, a .reg file for one test machine, or a table for the Group Policy editor. Runs in your browser.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/brand/deadload-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/brand/deadload-180.png">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <link rel="stylesheet" href="assets/css/policy.css">
+  <script type="module" src="assets/js/policy-ui.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="./" aria-label="DeadLoad home">
+        <picture>
+          <source srcset="assets/brand/deadload-mark-onDark.svg" media="(prefers-color-scheme: dark)">
+          <img src="assets/brand/deadload-mark.svg" alt="" width="32" height="32">
+        </picture>
+        <span>DeadLoad</span>
+      </a>
+      <nav aria-label="Primary">
+        <ul class="nav">
+          <li><a href="./#features">Features</a></li>
+          <li><a href="./#how-it-works">How it works</a></li>
+          <li><a href="./#safety">Safety</a></li>
+          <li><a href="policy.html" aria-current="page">Policy generator</a></li>
+          <li><a href="https://github.com/DailenG/DeadLoad">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="section" aria-labelledby="page-title">
+      <div class="container">
+        <div class="section-intro">
+          <span class="eyebrow">For IT administrators</span>
+          <h1 id="page-title">Policy generator</h1>
+          <p class="lead">The shipped defaults are the recommendation. Pick a preset, set the few values most sites change, and copy the result.</p>
+          <p>Outputs: a PowerShell script that writes the values into a GPO, a <code>.reg</code> file for one test machine, and a table for setting the same values by hand in the Group Policy Management Editor. Only values that differ from the defaults, or that the preset sets, are included. This page runs entirely in your browser and sends nothing anywhere. Background: <a href="https://github.com/DailenG/DeadLoad/blob/main/docs/RECOMMENDED-POLICY.md">RECOMMENDED-POLICY.md</a>.</p>
+        </div>
+
+        <noscript>
+          <p class="callout">The generator needs JavaScript. Without it, follow RECOMMENDED-POLICY.md and set the values in the Group Policy editor.</p>
+        </noscript>
+        <div id="load-error" class="callout" role="alert" hidden></div>
+
+        <div class="generator">
+          <form id="generator" class="generator-form" novalidate>
+            <fieldset class="panel">
+              <legend>Preset</legend>
+              <div class="presets" id="presets">
+                <label class="preset">
+                  <input type="radio" name="preset" value="pilot" checked>
+                  <span class="preset-name">Pilot</span>
+                  <span class="preset-text" data-preset-summary="pilot"></span>
+                </label>
+                <label class="preset">
+                  <input type="radio" name="preset" value="recommended">
+                  <span class="preset-name">Recommended</span>
+                  <span class="preset-text" data-preset-summary="recommended"></span>
+                </label>
+                <label class="preset">
+                  <input type="radio" name="preset" value="">
+                  <span class="preset-name">No preset</span>
+                  <span class="preset-text">Start from the shipped defaults and set only what you choose below.</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset class="panel">
+              <legend>Common settings</legend>
+              <p class="note">Leave a field at "Not configured" to keep the shipped default.</p>
+              <div id="common-fields" class="fields"></div>
+            </fieldset>
+
+            <fieldset class="panel">
+              <legend>Output options</legend>
+              <div class="fields">
+                <div class="field">
+                  <label for="gpo-name">GPO name (optional)</label>
+                  <input id="gpo-name" type="text" autocomplete="off" spellcheck="false" aria-describedby="gpo-name-hint gpo-name-error">
+                  <p class="hint" id="gpo-name-hint">Becomes the script's default for <code>-GpoName</code>. Leave empty to pass it when you run the script.</p>
+                  <p class="error" id="gpo-name-error" hidden></p>
+                </div>
+                <div class="field" role="radiogroup" aria-labelledby="tray-scope-label">
+                  <span class="label" id="tray-scope-label">Tray app settings go to</span>
+                  <label class="choice"><input type="radio" name="tray-scope" value="Machine" checked> Computer policy (HKLM)</label>
+                  <label class="choice"><input type="radio" name="tray-scope" value="User"> User policy (HKCU)</label>
+                  <p class="hint">Engine settings are always computer policy. Machine policy wins over user policy for the tray.</p>
+                </div>
+              </div>
+            </fieldset>
+
+            <details class="panel all-settings" id="all-settings">
+              <summary><span>All settings</span> <span class="note" id="all-count"></span></summary>
+              <p class="note">Every setting the Group Policy templates define, grouped as in the editor. Common settings above are not repeated. Custom targets are a list policy: set them in the editor.</p>
+              <div id="all-fields"></div>
+            </details>
+
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary btn-small" id="reset">Reset to preset</button>
+            </div>
+          </form>
+
+          <section class="panel output" aria-labelledby="output-title">
+            <h2 id="output-title">Result</h2>
+            <p id="summary" class="summary" aria-live="polite"></p>
+            <ul id="errors" class="errors" hidden></ul>
+
+            <div class="tabs" role="tablist" aria-label="Output format">
+              <button type="button" role="tab" id="tab-ps" aria-controls="panel-ps" aria-selected="true">PowerShell (GPO)</button>
+              <button type="button" role="tab" id="tab-reg" aria-controls="panel-reg" aria-selected="false" tabindex="-1">.reg file</button>
+              <button type="button" role="tab" id="tab-gpmc" aria-controls="panel-gpmc" aria-selected="false" tabindex="-1">GPMC table</button>
+            </div>
+
+            <div role="tabpanel" id="panel-ps" aria-labelledby="tab-ps" class="tabpanel">
+              <p class="note">Run on a machine with the Group Policy Management tools. Review it first.</p>
+              <div class="output-actions">
+                <button type="button" class="btn btn-primary btn-small" data-copy="ps">Copy</button>
+                <button type="button" class="btn btn-secondary btn-small" data-download="ps">Download .ps1</button>
+              </div>
+              <pre tabindex="0" aria-label="PowerShell script"><code id="out-ps"></code></pre>
+            </div>
+            <div role="tabpanel" id="panel-reg" aria-labelledby="tab-reg" class="tabpanel" hidden>
+              <p class="note">For one test machine. On a domain-joined machine a Group Policy refresh can replace or remove these values.</p>
+              <div class="output-actions">
+                <button type="button" class="btn btn-primary btn-small" data-copy="reg">Copy</button>
+                <button type="button" class="btn btn-secondary btn-small" data-download="reg">Download .reg</button>
+              </div>
+              <pre tabindex="0" aria-label=".reg file"><code id="out-reg"></code></pre>
+            </div>
+            <div role="tabpanel" id="panel-gpmc" aria-labelledby="tab-gpmc" class="tabpanel" hidden>
+              <p class="note">In the Group Policy Management Editor, open each policy and set it as shown.</p>
+              <div class="output-actions">
+                <button type="button" class="btn btn-primary btn-small" data-copy="gpmc">Copy</button>
+                <button type="button" class="btn btn-secondary btn-small" data-download="gpmc">Download .txt</button>
+              </div>
+              <div id="out-gpmc"></div>
+            </div>
+            <p id="copy-status" class="note" role="status"></p>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <p class="brand">
+          <picture>
+            <source srcset="assets/brand/deadload-mark-onDark.svg" media="(prefers-color-scheme: dark)">
+            <img src="assets/brand/deadload-mark.svg" alt="" width="24" height="24">
+          </picture>
+          <span>DeadLoad</span>
+        </p>
+        <p class="note">Licensed under GPL-3.0. This site loads no third-party scripts, fonts or trackers.</p>
+      </div>
+      <nav aria-label="Footer">
+        <ul>
+          <li><a href="https://github.com/DailenG/DeadLoad">Source</a></li>
+          <li><a href="https://github.com/DailenG/DeadLoad#readme">Docs</a></li>
+          <li><a href="https://github.com/DailenG/DeadLoad/issues">Issues</a></li>
+          <li><a href="https://github.com/DailenG/DeadLoad/blob/main/LICENSE">License (GPL-3.0)</a></li>
+          <li><a href="./">Home</a></li>
+        </ul>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

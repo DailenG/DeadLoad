@@ -1,0 +1,318 @@
+/* DeadLoad policy generator page. Builds on tokens.css and site.css. */
+
+.generator {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--dl-space-6);
+  align-items: start;
+}
+
+@media (max-width: 1023px) {
+  .generator {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.generator-form {
+  display: grid;
+  gap: var(--dl-space-5);
+  min-width: 0;
+}
+
+.panel {
+  margin: 0;
+  min-width: 0;
+  padding: var(--dl-space-5);
+  background: var(--dl-color-card);
+  border: var(--dl-border-width) solid var(--dl-color-border);
+  border-radius: var(--dl-radius-card);
+}
+
+.panel > legend {
+  float: left;
+  width: 100%;
+  margin: 0 0 var(--dl-space-3);
+  padding: 0;
+  color: var(--heading);
+  font-size: var(--dl-size-web-h3);
+  font-weight: var(--dl-weight-semibold);
+}
+
+.panel > legend + * {
+  clear: left;
+}
+
+.output {
+  position: sticky;
+  top: 80px;
+}
+
+@media (max-width: 1023px) {
+  .output {
+    position: static;
+  }
+}
+
+.output h2 {
+  font-size: var(--dl-size-web-h3);
+}
+
+/* ---------------------------------------------------------------- presets */
+.presets {
+  display: grid;
+  gap: var(--dl-space-3);
+}
+
+.preset {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px var(--dl-space-3);
+  align-items: start;
+  padding: var(--dl-space-3) var(--dl-space-4);
+  border: var(--dl-border-width) solid var(--dl-color-border);
+  border-radius: var(--dl-radius-control);
+  cursor: pointer;
+}
+
+.preset:has(input:checked) {
+  border-color: var(--dl-color-brand-blue);
+  background: var(--tint-blue);
+}
+
+.preset input {
+  grid-row: 1 / 3;
+  margin: 4px 0 0;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--dl-color-brand-blue);
+}
+
+.preset-name {
+  color: var(--dl-color-text-primary);
+  font-weight: var(--dl-weight-semibold);
+}
+
+.preset-text {
+  font-size: 14px;
+}
+
+/* ---------------------------------------------------------------- fields */
+.fields {
+  display: grid;
+  gap: var(--dl-space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--dl-space-1);
+  min-width: 0;
+}
+
+.field > label,
+.field > .label {
+  color: var(--dl-color-text-primary);
+  font-weight: var(--dl-weight-semibold);
+  font-size: 15px;
+}
+
+.field input[type="text"],
+.field select {
+  width: 100%;
+  min-height: var(--dl-control-height);
+  padding: 0 var(--dl-space-3);
+  font: inherit;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dl-color-text-primary);
+  background: var(--dl-color-card);
+  border: var(--dl-border-width) solid var(--line);
+  border-radius: var(--dl-radius-control);
+}
+
+.field input[type="text"]:hover,
+.field select:hover {
+  border-color: var(--dl-color-text-secondary);
+}
+
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"] {
+  border-color: var(--dl-color-danger);
+  border-width: 2px;
+}
+
+.field input::placeholder {
+  color: var(--dl-color-text-muted);
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: var(--dl-space-2);
+  min-height: 32px;
+  color: var(--dl-color-text-primary);
+}
+
+.choice input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--dl-color-brand-blue);
+}
+
+.hint {
+  margin: 0;
+  font-size: 14px;
+  color: var(--dl-color-text-secondary);
+}
+
+.error {
+  margin: 0;
+  font-size: 14px;
+  font-weight: var(--dl-weight-semibold);
+  color: var(--dl-color-danger);
+}
+
+.error::before {
+  content: "Error: ";
+}
+
+.error.is-warning {
+  color: var(--dl-color-warning);
+}
+
+.error.is-warning::before {
+  content: "Check: ";
+}
+
+/* ---------------------------------------------------------------- all settings */
+.all-settings > summary,
+.group > summary {
+  cursor: pointer;
+  list-style-position: outside;
+}
+
+.all-settings > summary {
+  color: var(--heading);
+  font-size: var(--dl-size-web-h3);
+  font-weight: var(--dl-weight-semibold);
+}
+
+.all-settings[open] > summary {
+  margin-bottom: var(--dl-space-3);
+}
+
+.group-heading {
+  font-size: 17px;
+  margin: var(--dl-space-5) 0 var(--dl-space-2);
+}
+
+.group {
+  border-top: var(--dl-border-width) solid var(--dl-color-border);
+  padding: var(--dl-space-3) 0;
+}
+
+.group > summary {
+  display: list-item;
+  padding: var(--dl-space-1) 0;
+}
+
+.group > summary > * {
+  margin-right: var(--dl-space-2);
+}
+
+.group-title {
+  color: var(--dl-color-text-primary);
+  font-weight: var(--dl-weight-semibold);
+}
+
+.group-meta {
+  font-size: 13px;
+  color: var(--dl-color-text-secondary);
+}
+
+.group[open] > .fields,
+.group[open] > .note {
+  margin-top: var(--dl-space-3);
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--dl-space-3);
+}
+
+/* ---------------------------------------------------------------- output */
+.summary {
+  font-weight: var(--dl-weight-semibold);
+  color: var(--dl-color-text-primary);
+}
+
+.errors {
+  margin: 0 0 var(--dl-space-4);
+  padding: var(--dl-space-3) var(--dl-space-4) var(--dl-space-3) var(--dl-space-6);
+  border-left: 4px solid var(--dl-color-danger);
+  background: var(--tint-danger);
+  color: var(--dl-color-text-primary);
+  border-radius: var(--dl-radius-control);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dl-space-1);
+  border-bottom: var(--dl-border-width) solid var(--dl-color-border);
+  margin-bottom: var(--dl-space-4);
+}
+
+.tabs [role="tab"] {
+  min-height: var(--dl-control-height);
+  padding: 0 var(--dl-space-4);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--dl-color-text-secondary);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.tabs [role="tab"]:hover {
+  color: var(--dl-color-text-primary);
+}
+
+.tabs [role="tab"][aria-selected="true"] {
+  color: var(--dl-color-text-primary);
+  border-bottom-color: var(--dl-color-brand-blue);
+  font-weight: var(--dl-weight-semibold);
+}
+
+.output-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dl-space-2);
+  margin-bottom: var(--dl-space-3);
+}
+
+.output pre {
+  max-height: 520px;
+  font-size: 13px;
+  white-space: pre;
+}
+
+.output .table-wrap table {
+  font-size: 14px;
+}
+
+.empty {
+  font-weight: var(--dl-weight-semibold);
+  color: var(--dl-color-text-primary);
+}
+
+@media (forced-colors: active) {
+  .tabs [role="tab"][aria-selected="true"] {
+    border-bottom-color: Highlight;
+  }
+
+  .preset:has(input:checked) {
+    border: 2px solid Highlight;
+  }
+}
