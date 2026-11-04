@@ -204,16 +204,47 @@ Invoke-Step -Step 'Seed' -Body {
     for ($i = 1; $i -le 8; $i++) { Set-AgedFile -Path (Join-Path $odis ('install-{0}.log' -f $i)) -AgeDays (99 + $i) }
     Set-AgedFile -Path (Join-Path $env:SystemRoot 'Temp\dlseed-machine-old.tmp') -AgeDays 30
 
-    # Legacy Get-FreeSpace leftovers: a folder, a task that runs its script (removed) and a
-    # FreeSpace-named task that does not (kept). The MSI itself is not available here.
+    # Legacy Get-FreeSpace: the real 1.3.5.0 MSI when the run folder carries it, else a stand-in
+    # folder. Plus a task that runs it (removed) and a FreeSpace-named task that does not (kept).
     $legacy = Join-Path $env:ProgramFiles 'Get-FreeSpace'
-    Set-AgedFile -Path (Join-Path $legacy 'Get-FreeSpace.ps1') -AgeDays 400
-    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-File "{0}"' -f (Join-Path $legacy 'Get-FreeSpace.ps1'))
+    $legacyMsi = Join-Path $InputPath 'get-freespace.msi'
+    $script:legacyMsiUsed = Test-Path -LiteralPath $legacyMsi
+    if ($script:legacyMsiUsed)
+    {
+        # As deployments commonly did: a Chocolatey package that wraps the 1.3.5.0 MSI.
+        $package = Join-Path $env:TEMP 'legacy-package'
+        $tools = Join-Path $package 'tools'
+        New-Item -ItemType Directory -Path $tools -Force | Out-Null
+        Copy-Item -LiteralPath $legacyMsi -Destination $tools
+        $nuspec = '<?xml version="1.0"?><package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd"><metadata><id>get-freespace</id><version>1.3.5</version><title>Get-FreeSpace</title><authors>Dailen</authors><description>Legacy Get-FreeSpace 1.3.5.0 MSI (sandbox test package).</description></metadata></package>'
+        Set-Content -LiteralPath (Join-Path $package 'get-freespace.nuspec') -Value $nuspec -Encoding UTF8
+        $install = @(
+            '$toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Definition'
+            'Install-ChocolateyInstallPackage -PackageName ''get-freespace'' -FileType ''msi'' -SilentArgs ''/qn /norestart'' -File (Join-Path $toolsDir ''get-freespace.msi'')'
+        )
+        Set-Content -LiteralPath (Join-Path $tools 'chocolateyInstall.ps1') -Value $install -Encoding UTF8
+        $feed = Join-Path $env:TEMP 'legacy-feed'
+        New-Item -ItemType Directory -Path $feed -Force | Out-Null
+        $pack = Invoke-Choco -Name 'legacy-pack' -Arguments @('pack', (Join-Path $package 'get-freespace.nuspec'), '--outputdirectory', $feed)
+        $legacyInstall = Invoke-Choco -Name 'legacy-install' -Arguments @('install', 'get-freespace', '--source', $feed, '-y', '--no-progress')
+        $entry = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{DCD33BCE-C996-4E9B-9044-B77CCCB33EAD}' -ErrorAction SilentlyContinue
+        $exe = Join-Path $legacy 'get-freespace.exe'
+        $version = $null
+        if ($entry) { $version = $entry.DisplayVersion }
+        $record = Test-Path -LiteralPath (Join-Path $env:ProgramData 'chocolatey\lib\get-freespace')
+        Add-Check -Step 'Seed' -Check 'legacy Get-FreeSpace 1.3.5.0 installed through its Chocolatey package' -Pass ($pack.Exit -eq 0 -and $legacyInstall.Exit -eq 0 -and $version -eq '1.3.5.0' -and (Test-Path -LiteralPath $exe) -and $record) -Actual ('pack exit {0}; install exit {1}; MSI entry version {2}; exe present {3}; choco record {4}' -f $pack.Exit, $legacyInstall.Exit, $version, (Test-Path -LiteralPath $exe), $record)
+        $action = New-ScheduledTaskAction -Execute $exe -Argument '-Force -RetainDays 3 -Quiet'
+    }
+    else
+    {
+        Set-AgedFile -Path (Join-Path $legacy 'Get-FreeSpace.ps1') -AgeDays 400
+        $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-File "{0}"' -f (Join-Path $legacy 'Get-FreeSpace.ps1'))
+    }
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddYears(5)
     Register-ScheduledTask -TaskName 'Get-FreeSpace Cleanup' -TaskPath '\' -Action $action -Trigger $trigger -User 'SYSTEM' -Force | Out-Null
     $other = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '/c echo FreeSpace report'
     Register-ScheduledTask -TaskName 'FreeSpace Report Unrelated' -TaskPath '\' -Action $other -Trigger $trigger -User 'SYSTEM' -Force | Out-Null
-    Add-Check -Step 'Seed' -Check 'aged files and legacy leftovers created' -Pass $true -Actual ('temp, CER 8, ODIS 8, Windows Temp 1, legacy folder and 2 tasks')
+    Add-Check -Step 'Seed' -Check 'aged files and legacy leftovers created' -Pass $true -Actual ('temp, CER 8, ODIS 8, Windows Temp 1, legacy MSI {0}, 2 tasks' -f $script:legacyMsiUsed)
 }
 
 Invoke-Step -Step 'Install' -Body {
@@ -224,6 +255,16 @@ Invoke-Step -Step 'Install' -Body {
     $legacyTask = Get-ScheduledTask -TaskPath '\' -TaskName 'Get-FreeSpace Cleanup' -ErrorAction SilentlyContinue
     $otherTask = Get-ScheduledTask -TaskPath '\' -TaskName 'FreeSpace Report Unrelated' -ErrorAction SilentlyContinue
     Add-Check -Step 'Install' -Check 'legacy task removed, unrelated FreeSpace task kept' -Pass ($null -eq $legacyTask -and $null -ne $otherTask) -Actual ('legacy present {0}; unrelated present {1}' -f ($null -ne $legacyTask), ($null -ne $otherTask))
+    if ($script:legacyMsiUsed)
+    {
+        $entry = Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{DCD33BCE-C996-4E9B-9044-B77CCCB33EAD}'
+        Add-Check -Step 'Install' -Check 'legacy MSI uninstalled (uninstall entry gone)' -Pass (-not $entry) -Actual ('entry present {0}' -f $entry)
+        $record = Test-Path -LiteralPath (Join-Path $env:ProgramData 'chocolatey\lib\get-freespace')
+        $listed = @((& $choco list --limit-output) | Where-Object { $_ -like 'get-freespace|*' })
+        $lines = ($result.Output -split "`r?`n" | Where-Object { $_ -match 'Legacy' }) -join '; '
+        Add-Check -Step 'Install' -Check 'legacy Chocolatey record removed (choco list no longer shows it)' -Pass (-not $record -and $listed.Count -eq 0) -Actual ('lib folder {0}; listed {1}; {2}' -f $record, ($listed -join ','), $lines)
+        Copy-Item -LiteralPath (Join-Path $env:TEMP 'DeadLoad-legacy-msi-uninstall.log') -Destination $OutputPath -ErrorAction SilentlyContinue
+    }
 }
 
 Invoke-Step -Step 'Run' -Body {

@@ -716,7 +716,112 @@ function Remove-DLLegacyTask
     }
 }
 
+function Find-DLLegacyChocolateyPackage
+{
+    <#
+        .SYNOPSIS
+            Chocolatey packages that installed the legacy Get-FreeSpace (FR-23), by what they
+            are rather than a fixed id: deployments used their own feeds and ids.
+
+        .DESCRIPTION
+            A package folder under <ChocolateyInstall>\lib qualifies when its id is
+            get-freespace (or getfreespace, get_freespace, get.freespace), its nuspec title is
+            Get-FreeSpace, or a script in it names the legacy ProductCode or get-freespace.msi.
+            DeadLoad's own package never qualifies; a folder that is a reparse point is skipped.
+            Read-only.
+    #>
+    [CmdletBinding()]
+    param
+    (
+        [string]$LibPath,
+        [string]$ProductCode = $script:DLLegacyProductCode
+    )
+
+    if (-not $LibPath)
+    {
+        if (-not $env:ChocolateyInstall) { return }
+        $LibPath = Join-Path $env:ChocolateyInstall 'lib'
+    }
+    if (-not [System.IO.Directory]::Exists($LibPath)) { return }
+    $code = $ProductCode.Trim('{', '}')
+
+    foreach ($folder in @([System.IO.DirectoryInfo]::new($LibPath).GetDirectories()))
+    {
+        if (Test-DLReparsePoint -Item $folder) { continue }
+        $nuspecs = @($folder.GetFiles('*.nuspec'))
+        if ($nuspecs.Count -eq 0) { continue }
+        $id = $folder.Name
+        $title = $null
+        $version = $null
+        try
+        {
+            [xml]$document = [System.IO.File]::ReadAllText($nuspecs[0].FullName)
+            $metadata = $document.package.metadata
+            if ($metadata.id) { $id = [string]$metadata.id }
+            if ($metadata.title) { $title = [string]$metadata.title }
+            if ($metadata.version) { $version = [string]$metadata.version }
+        }
+        catch { Write-Verbose ('Unreadable nuspec {0}: {1}' -f $nuspecs[0].FullName, $_.Exception.Message) }
+        if ($id -eq 'deadload') { continue }
+
+        $reason = $null
+        if ($id -match '^get[-_.]?freespace$') { $reason = 'id' }
+        elseif ($title -eq 'Get-FreeSpace') { $reason = 'title' }
+        else
+        {
+            foreach ($script in @($folder.GetFiles('*.ps1', [System.IO.SearchOption]::AllDirectories)))
+            {
+                $text = [System.IO.File]::ReadAllText($script.FullName)
+                if ($text.IndexOf($code, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+                    $text.IndexOf('get-freespace.msi', [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
+                {
+                    $reason = 'script'
+                    break
+                }
+            }
+        }
+        if ($reason) { [pscustomobject]@{ Id = $id; Version = $version; Title = $title; Path = $folder.FullName; MatchedBy = $reason } }
+    }
+}
+
+function Remove-DLLegacyChocolateyPackage
+{
+    <#
+        .SYNOPSIS
+            Drops Chocolatey's record of a legacy Get-FreeSpace package once the product itself
+            is gone, so choco upgrade all cannot reinstall it beside DeadLoad.
+
+        .DESCRIPTION
+            choco uninstall <id> -n --skip-autouninstaller -y: -n skips the package's own
+            uninstall script and the auto-uninstaller is skipped too, because the MSI was
+            already removed by Uninstall-DLLegacyMsi; only the record goes. A failure is a
+            warning: the stale record must not fail the DeadLoad install.
+    #>
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
+    param
+    (
+        [Parameter(Mandatory)] [string]$Id,
+        [string]$ChocoPath
+    )
+
+    if (-not $ChocoPath)
+    {
+        if (-not $env:ChocolateyInstall) { Write-Warning ('Chocolatey not found; record {0} kept.' -f $Id); return 'Kept' }
+        $ChocoPath = Join-Path $env:ChocolateyInstall 'bin\choco.exe'
+    }
+    $arguments = @('uninstall', $Id, '-n', '--skip-autouninstaller', '-y', '--limit-output')
+    if (-not $PSCmdlet.ShouldProcess($Id, ('choco {0}' -f ($arguments -join ' ')))) { return 'WhatIf' }
+    $output = & $ChocoPath @arguments 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-Warning ('choco uninstall {0} -n exited {1}; the Chocolatey record is kept: {2}' -f $Id, $LASTEXITCODE, $output.Trim())
+        return 'Kept'
+    }
+    return 'Removed'
+}
+
 Export-ModuleMember -Function Get-DLManifestData, Get-DLPackageOptions, Remove-DLProductTree, Copy-DLTree, Install-DLPayload,
     Set-DLDataAcl, Register-DLEventSource, Unregister-DLEventSource, Set-DLLocalRegistry, Remove-DLLocalRegistry,
     Set-DLTrayRunKey, Remove-DLTrayRunKey, Install-DLAdmx, Find-DLLegacyInstall, Uninstall-DLLegacyMsi,
-    Remove-DLLegacyFolder, Get-DLLegacyTask, Remove-DLLegacyTask
+    Remove-DLLegacyFolder, Get-DLLegacyTask, Remove-DLLegacyTask, Find-DLLegacyChocolateyPackage,
+    Remove-DLLegacyChocolateyPackage

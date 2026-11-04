@@ -56,6 +56,13 @@ if ($legacyTasks.Count -gt 0)
 {
     foreach ($removed in @(Remove-DLLegacyTask -Task $legacyTasks -Confirm:$false)) { Write-Host ('Legacy task removed: {0}' -f $removed) }
 }
+# The product is gone; drop Chocolatey's record of a package that installed it, or choco upgrade
+# all would put it back beside DeadLoad.
+foreach ($package in @(Find-DLLegacyChocolateyPackage))
+{
+    $result = Remove-DLLegacyChocolateyPackage -Id $package.Id -Confirm:$false
+    Write-Host ('Legacy Chocolatey package {0} {1} (matched by {2}): {3}' -f $package.Id, $package.Version, $package.MatchedBy, $result)
+}
 
 # 2. Program files: engine, tray, policy swapped in folder by folder.
 foreach ($row in @(Install-DLPayload -Source $payload -Destination $installDir -Confirm:$false))

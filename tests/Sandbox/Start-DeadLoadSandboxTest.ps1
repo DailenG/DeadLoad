@@ -18,11 +18,16 @@
 
     .PARAMETER NoLaunch
         Prepare the run folder and .wsb only.
+
+    .PARAMETER LegacyMsi
+        The Get-FreeSpace 1.3.5.0 MSI to install before DeadLoad, so the legacy retirement runs
+        against the real product. Without it the run seeds a stand-in folder.
 #>
 [CmdletBinding()]
 param
 (
     [string]$Package,
+    [string]$LegacyMsi,
     [switch]$NoSign,
     [switch]$NoLaunch
 )
@@ -34,6 +39,7 @@ $version = [version](Test-ModuleManifest -Path $manifest).Version
 $upgrade = '{0}.{1}.{2}' -f $version.Major, $version.Minor, ($version.Build + 1)
 if (-not $Package) { $Package = Join-Path $repo ('out\deadload.{0}.nupkg' -f $version) }
 if (-not (Test-Path -LiteralPath $Package)) { throw ('Package {0} not found; run build\Build.ps1 first.' -f $Package) }
+if ($LegacyMsi -and -not (Test-Path -LiteralPath $LegacyMsi)) { throw ('Legacy MSI {0} not found.' -f $LegacyMsi) }
 $chocolatey = Join-Path $env:ProgramData 'chocolatey\lib\chocolatey\chocolatey.nupkg'
 if (-not (Test-Path -LiteralPath $chocolatey)) { throw ('{0} not found: Chocolatey must be installed on the host.' -f $chocolatey) }
 $sandbox = Join-Path $env:SystemRoot 'System32\WindowsSandbox.exe'
@@ -43,6 +49,7 @@ $run = Join-Path $repo ('out\sandbox\{0}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'
 $in = Join-Path $run 'in'
 $out = Join-Path $run 'out'
 New-Item -ItemType Directory -Path $in, $out -Force | Out-Null
+if ($LegacyMsi) { Copy-Item -LiteralPath $LegacyMsi -Destination (Join-Path $in 'get-freespace.msi') }
 
 # Upgrade package: HEAD in a detached worktree, version bumped in the two places Build.ps1
 # requires to match, built straight into the run folder.

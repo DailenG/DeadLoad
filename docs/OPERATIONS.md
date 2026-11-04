@@ -36,6 +36,12 @@ order, every step idempotent:
    has an uninstall entry (64-bit or WOW6432Node view), `msiexec.exe /x {GUID} /qn /norestart`
    runs with a verbose log in `%TEMP%\DeadLoad-legacy-msi-uninstall.log`. Exit 0 and 1605 are
    success; 3010 is success with a warning and no restart; anything else fails the install.
+   When Get-FreeSpace came through a Chocolatey package, Chocolatey's record of it is dropped
+   next with `choco uninstall <id> -n --skip-autouninstaller -y` (no package script runs; the
+   MSI is already gone), so `choco upgrade all` cannot reinstall it. The package is found by
+   what it is, since deployments used their own ids: id `get-freespace` (or `getfreespace`,
+   `get_freespace`, `get.freespace`), nuspec title `Get-FreeSpace`, or a package script naming
+   the ProductCode or `get-freespace.msi`. A failure here is a warning, not a failed install.
    `%ProgramFiles%\Get-FreeSpace` and `%ProgramFiles(x86)%\Get-FreeSpace` are removed when
    present, refused (and kept, with a warning) if the folder or any subfolder is a reparse
    point. Root-folder scheduled tasks whose name contains `FreeSpace` are removed only when an

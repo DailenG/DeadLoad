@@ -371,6 +371,62 @@ Describe 'Legacy Get-FreeSpace retirement' {
         )
         @(Get-DLLegacyTask -Task $tasks | ForEach-Object { $_.Path }) -join ',' | Should -Be '\Get-FreeSpace Weekly'
     }
+
+    Context 'Chocolatey record of a legacy package' {
+
+        BeforeEach {
+            $script:Sandbox = New-DLSandbox
+            $script:Lib = Join-Path $script:Sandbox.Root 'lib'
+            function script:New-DLTestPackage
+            {
+                param ([string]$Folder, [string]$Id, [string]$Title, [string]$Script)
+                $path = Join-Path $script:Lib $Folder
+                [void][System.IO.Directory]::CreateDirectory((Join-Path $path 'tools'))
+                $nuspec = '<?xml version="1.0"?><package><metadata><id>{0}</id><version>1.3.5</version><title>{1}</title></metadata></package>' -f $Id, $Title
+                [System.IO.File]::WriteAllText((Join-Path $path ('{0}.nuspec' -f $Folder)), $nuspec)
+                if ($Script) { [System.IO.File]::WriteAllText((Join-Path $path 'tools\chocolateyInstall.ps1'), $Script) }
+                return $path
+            }
+        }
+        AfterEach { Remove-DLSandbox -Sandbox $script:Sandbox }
+
+        It 'finds a Get-FreeSpace package by id, title or install script, never DeadLoad or an unrelated one' {
+            $target = New-DLTestPackage -Folder 'get-freespace' -Id 'get-freespace' -Title 'Get FreeSpace'
+            New-DLTestPackage -Folder 'cleanup-tool' -Id 'cleanup-tool' -Title 'Get-FreeSpace' | Out-Null
+            New-DLTestPackage -Folder 'acme-cleanup' -Id 'acme-cleanup' -Title 'Acme' -Script 'Install-ChocolateyPackage -File "$toolsDir\get-freespace.msi"' | Out-Null
+            New-DLTestPackage -Folder 'acme-guid' -Id 'acme-guid' -Title 'Acme' -Script 'Uninstall-ChocolateyPackage -File {DCD33BCE-C996-4E9B-9044-B77CCCB33EAD}' | Out-Null
+            New-DLTestPackage -Folder 'deadload' -Id 'deadload' -Title 'DeadLoad' -Script '$code = "{DCD33BCE-C996-4E9B-9044-B77CCCB33EAD}"' | Out-Null
+            New-DLTestPackage -Folder 'freespace-checker' -Id 'freespace-checker' -Title 'FreeSpace Checker' -Script 'Write-Host freespace' | Out-Null
+            New-Item -ItemType Junction -Path (Join-Path $script:Lib 'get-freespace-link') -Value $target | Out-Null
+
+            $found = @(Find-DLLegacyChocolateyPackage -LibPath $script:Lib | Sort-Object -Property Id)
+            ($found | ForEach-Object { '{0}:{1}' -f $_.Id, $_.MatchedBy }) -join ',' | Should -Be 'acme-cleanup:script,acme-guid:script,cleanup-tool:title,get-freespace:id'
+        }
+
+        It 'finds nothing when the lib folder is absent' {
+            @(Find-DLLegacyChocolateyPackage -LibPath (Join-Path $script:Sandbox.Root 'nolib')).Count | Should -Be 0
+        }
+
+        It 'drops only the record: choco uninstall <id> -n --skip-autouninstaller; exit <Exit> is <Expected>' -ForEach @(
+            @{ Exit = 0; Expected = 'Removed' }
+            @{ Exit = 1; Expected = 'Kept' }
+        ) {
+            $stub = Join-Path $script:Sandbox.Root 'choco.cmd'
+            $argsFile = Join-Path $script:Sandbox.Root 'args.txt'
+            [System.IO.File]::WriteAllText($stub, ("@echo %*> `"{0}`"`r`n@exit /b {1}`r`n" -f $argsFile, $Exit))
+
+            Remove-DLLegacyChocolateyPackage -Id 'get-freespace' -ChocoPath $stub -Confirm:$false -WarningAction SilentlyContinue | Should -Be $Expected
+            ([System.IO.File]::ReadAllText($argsFile)).Trim() | Should -Be 'uninstall get-freespace -n --skip-autouninstaller -y --limit-output'
+        }
+
+        It 'never starts choco with -WhatIf' {
+            $stub = Join-Path $script:Sandbox.Root 'choco.cmd'
+            $argsFile = Join-Path $script:Sandbox.Root 'args.txt'
+            [System.IO.File]::WriteAllText($stub, ("@echo %*> `"{0}`"`r`n" -f $argsFile))
+            Remove-DLLegacyChocolateyPackage -Id 'get-freespace' -ChocoPath $stub -WhatIf | Should -Be 'WhatIf'
+            Test-Path -LiteralPath $argsFile | Should -BeFalse
+        }
+    }
 }
 
 Describe 'Local registry and tray Run value' {
