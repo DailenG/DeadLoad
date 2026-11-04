@@ -1,10 +1,9 @@
 # Recommended DeadLoad policy
 
 **The shipped defaults are the recommendation.** They come from measuring seven engineering
-workstations ([MEASUREMENTS.md](MEASUREMENTS.md)) and the decisions recorded in
-[ARCHITECTURE.md](ARCHITECTURE.md) section 2 (D10 for the numbers, D17 to D21 for Revit journals,
-web caches, temp files of running sessions and Desktop Connector). A Group Policy object for
-DeadLoad therefore sets very little. Most organizations set only:
+workstations ([MEASUREMENTS.md](MEASUREMENTS.md)); the reasoning behind each number and category
+is in [ARCHITECTURE.md](ARCHITECTURE.md) sections 2 and 7. A Group Policy object for DeadLoad
+therefore sets very little. Most organizations set only:
 
 | What | Policy (Group Policy editor) | Registry value under `HKLM\SOFTWARE\Policies\DeadLoad` | Default |
 |---|---|---|---|
@@ -24,15 +23,15 @@ of every value, is in the ADMX templates and in the
 - **Schedule**: Maintenance weekly on Sunday at 03:00, started when the machine is next available
   if it was off; a daily pressure check at 12:30 that also runs on low-disk events. Scheduled
   runs do not start on battery power (`AllowOnBattery` 0).
-- **Disk pressure** (D10): below the larger of 30 GB and 5 percent free, pressure tiers give up
+- **Disk pressure**: below the larger of 30 GB and 5 percent free, pressure tiers give up
   eligible items, oldest first, until free space reaches the larger of 45 GB and 8 percent.
 - **Budgets**: a run stops cleanly after 20 minutes or 100,000 items; no byte cap.
 - **Categories on**: Windows and user temp files (7 days), Revit web cache (14 days), Revit
   content cache (pressure only), Revit journals (compressed after 3 days, archives kept 180 days),
   Revit's own journal retention raised to 14 days, Autodesk crash reports (30 days, newest 5
   kept), Autodesk installer logs (90 days, newest 5 kept).
-- **Categories off**: Revit collaboration cache (D7), data of Revit versions no longer installed,
-  Autodesk installation files under `C:\Autodesk` (D8), AutoCAD graphics cache, automatic save
+- **Categories off**: Revit collaboration cache, data of Revit versions no longer installed,
+  Autodesk installation files under `C:\Autodesk`, AutoCAD graphics cache, automatic save
   files and error logs. Turn one on only for a measured reason (category policy `Enabled`).
 
 ## Per product
@@ -44,19 +43,19 @@ reason; the shipped value is the recommendation.
 
 | Product | Category | Default | Limits worth knowing (shipped value) |
 |---|---|---|---|
-| Revit | `revit.journals` | on | `AgeDays` compress after 3 days; under pressure `PressureKeepNewest` 20, `PressureAgeDays` 2 (D19) |
+| Revit | `revit.journals` | on | `AgeDays` compress after 3 days; under pressure `PressureKeepNewest` 20, `PressureAgeDays` 2 |
 | Revit | `revit.journals.archive` | on | `AgeDays` 180; `ProtectNewest` 1 |
-| Revit | `revit.ini.journalshelf` | on | `ShelfLifeDays` 14, `ShelfCapacity` 10. Keep it on while journals are compressed: Revit's own cleanup otherwise deletes journals older than 10 days (D18) |
+| Revit | `revit.ini.journalshelf` | on | `ShelfLifeDays` 14, `ShelfCapacity` 10. Keep it on while journals are compressed: Revit's own cleanup otherwise deletes journals older than 10 days |
 | Revit | `revit.webcache` | on | `AgeDays` 14; `PressureAgeDays` 3 |
-| Revit | `revit.paccache` | on | pressure only (D9): `PressureAgeDays` 7 |
-| Revit | `revit.collabcache` | off (D7) | pressure only: `PressureAgeDays` 90, `MinAgeHours` 2160. Removing a model's cache can lose changes that were saved but not synchronized; have users synchronize first |
+| Revit | `revit.paccache` | on | pressure only (Revit manages this cache's size itself): `PressureAgeDays` 7 |
+| Revit | `revit.collabcache` | off | pressure only: `PressureAgeDays` 90, `MinAgeHours` 2160. Removing a model's cache can lose changes that were saved but not synchronized; have users synchronize first |
 | Revit | `revit.oldversions` | off | `AgeDays` 90; `PressureAgeDays` 30. Deletes whole folders of uninstalled Revit years, journals and model backups included |
 | AutoCAD | `autocad.graphicscache` | off | `AgeDays` 30; `PressureAgeDays` 7. Measured too small to need a rule |
-| AutoCAD | `autocad.recovery` | off | `AgeDays` 30; `MinAgeHours` 72. Recovery data; never part of a user-started cleanup (D25) |
+| AutoCAD | `autocad.recovery` | off | `AgeDays` 30; `MinAgeHours` 72. Recovery data; never part of a user-started cleanup |
 | AutoCAD | `autocad.errorlogs` | off | `AgeDays` 30 |
 | Shared | `autodesk.cer` | on | `AgeDays` 30; `ProtectNewest` 5 |
 | Shared | `autodesk.installlogs` | on | `AgeDays` 90; `ProtectNewest` 5 |
-| Shared | `autodesk.installers` | off (D8) | pressure only: `PressureAgeDays` 90, `MinAgeHours` 2160. Updates, repairs and reinstalls may need these files |
+| Shared | `autodesk.installers` | off | pressure only: `PressureAgeDays` 90, `MinAgeHours` 2160. Updates, repairs and reinstalls may need these files |
 | Temporary files | `user.temp`, `windows.temp` | on | `AgeDays` 7; `MinAgeHours` 24 |
 
 Civil 3D is not measured or supported. Custom targets (a list policy) are set in the Group Policy
@@ -131,5 +130,5 @@ configuration as event 1003, and `%ProgramData%\DeadLoad\last-run.json` shows `R
 last run.
 
 A new maintenance time reaches the scheduled task at the end of the next Maintenance or
-PressureCheck run (the engine re-applies the task triggers from the effective settings, D15);
+PressureCheck run (the engine re-applies the task triggers from the effective settings);
 `Sync-DeadLoadSchedule`, run elevated, applies it at once.

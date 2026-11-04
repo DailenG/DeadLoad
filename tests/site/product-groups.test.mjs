@@ -34,6 +34,24 @@ test('product-groups.json is 7-bit ASCII', () => {
   assert.ok(/^[\x00-\x7F]*$/.test(groupsText));
 });
 
+test('user-facing text cites no internal decision or requirement ids', () => {
+  // D7, D18, FR-23, SR-2 and the like are references into docs/ARCHITECTURE.md and PRD.md; an
+  // administrator reading the generator or the site cannot use them.
+  const internalId = /\b(?:D\d{1,2}|(?:FR|SR|NFR)-\d+)\b/;
+  const strings = [];
+  const walk = (node, key) => {
+    if (typeof node === 'string') { if (key !== 'comment') strings.push(node); return; }
+    if (node && typeof node === 'object') for (const [k, v] of Object.entries(node)) walk(v, k);
+  };
+  walk(groups, '');
+  for (const s of strings) assert.doesNotMatch(s, internalId, s);
+  for (const page of ['index.html', 'policy.html']) {
+    const html = readFileSync(fileURLToPath(new URL(`../../site/${page}`, import.meta.url)), 'utf8');
+    const text = html.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<[^>]+>/g, ' ');
+    assert.doesNotMatch(text, internalId, page);
+  }
+});
+
 test('every curated category and knob exists in the catalog with the stated type', () => {
   assert.deepEqual(resolved.problems, []);
   for (const product of groups.products) {
