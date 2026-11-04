@@ -42,15 +42,18 @@ override), **Open** (needs the owner before the phase that uses it).
 | D7 | CollaborationCache: **disabled** by default. When enabled: pressure-only, unit = project folder (`<hub>\<project>`), 90 days untouched, never while the user runs a guarded process, honors a relocated cache (`Revit.ini` `[CloudModelCache] CacheLocation`). | Proposed | Autodesk: clearing it destroys saved-but-unsynchronized changes; the hub folder is the wrong unit. |
 | D8 | `C:\Autodesk` installer extracts: **disabled** by default. When enabled: folder unit, 90 days, pressure-only, never `Network License Manager`, never a folder referenced by an installed product's `InstallSource`. | Proposed | Autodesk: deletable after install but "recommended" to keep; updates and reinstall may need it. |
 | D9 | PacCache: no routine rule (Autodesk says it self-manages via `DiskCacheLimitGB`, default 10); pressure-only, keep `Logs\` and `*.json`. | Proposed | Follows Autodesk guidance; reclaimable under real pressure. |
-| D10 | Default numbers: section 7. | Proposed | From the field sizes in MEASUREMENTS.md; re-tuned after the pilot's report-only weeks. |
+| D10 | Default numbers: section 7. Pressure floor is the larger of **30 GB** and **5 %**, target the larger of **45 GB** and **8 %** (was 20 GB / 15 % and 30 GB / 20 %). Temp ages stay at 7 days with a 24-hour minimum; web cache 14 days; CER 30 days keeping the newest 5; ODIS logs 90 days keeping the newest 5; journal archives 180 days. | Accepted from measurements (2026-11-03), re-tuned after the pilot | Seven measured workstations have 475 to 930 GB system drives. A 15 %/20 % floor and target would mean 71 to 140 GB and 95 to 186 GB: two hosts (49 and 30 GB free) would sit permanently in pressure with targets no category can reach (measured reclaimable space per host: about 1 to 15 GB, mostly PacCache, temp and CER). 30 GB / 45 GB tracks what a Revit year install needs and keeps 2002 ("target not reachable") meaningful. Temp and cache ages cannot be re-tuned from this sample: the previous weekly wipe capped them at 7 days (MEASUREMENTS section 2). |
 | D11 | Central journal archive (copy closed journals to a UNC path): designed (Copy action, section 9), **off** by default, not in v1 scope. | Open | Privacy decision (journals record user actions and model names), share ACL and server retention are the client's call. |
 | D12 | Chocolatey feed: built and signed here; published to the client's internal feed by the owner. Feed URL lives only in the deployment, never in this repo. | Open | Confirm feed host, URL and who publishes. |
 | D13 | Retention evaluation order: protect, then routine (age, count, size, share), then pressure tiers until the target is met. All configured limits of a rule combine with OR (any limit selects an item, logrotate semantics); protection always wins. | Proposed | Predictable, explainable per item, matches log-management practice. |
 | D14 | Targets are code: shipped in `Data\Defaults.psd1`, Authenticode-signed; the engine verifies the data file has the same signer as the module when the module is signed. No runtime download. | Proposed | Fixes the inherited remote-list defect (section 13). |
 | D15 | Schedule is policy-driven: the engine re-applies task triggers from the effective schedule settings at the end of each Maintenance and PressureCheck run (SYSTEM owns the tasks). | Proposed | GPO cannot edit task triggers directly; avoids a GPP scheduled-task dependency. |
 | D16 | Revit `Journals` folders also hold backup RVT/RFA copies from saves to network locations (Autodesk). Protected patterns (`*.rvt`, `*.rfa`, ...) therefore apply in the journal categories. | Accepted | Autodesk documents those copies as recovery data. |
-| D17 | Revit 2026+ replaced `CefCache` with `WebBrowserControl` (WebView2). Both are members of `revit.webcache`. | Proposed | Autodesk "How to clear cached data for Revit Home". Measure on 2026/2027 before enabling. |
-| D18 | Revit's own journal cleanup (`Revit.ini` `[Backups]` `JournalShelfCapacity`/`JournalShelfLife`, defaults 10 files / 10 days) defeats a 30-day retention. DeadLoad can raise them (`revit.ini.journalshelf`, off by default). Whether to default it on is decided from measurements. | Open | If Revit prunes to 10/10 already, DeadLoad's journal retention is moot without it. |
+| D17 | Revit 2026+ replaced `CefCache` with `WebBrowserControl` (WebView2). Both are members of `revit.webcache`, both under `{LocalAppData}` (never `{AppData}`). | Accepted (measured 2026-11-03) | 2023 to 2025 folders hold `CefCache` only, every 2026 folder `WebBrowserControl` only, on six hosts; no Roaming copy anywhere. |
+| D18 | Revit's own journal cleanup is active and prunes to 10: every Revit year folder with history holds exactly 10 (once 11) journals with consecutive session numbers far above 10 (for example 160 to 169), oldest 32 days to 6 years old, on five hosts; no `Revit.ini` sets the keys, so the defaults (more than 10 journals: delete those older than 10 days) apply. DeadLoad therefore ships `revit.ini.journalshelf` **on**, raising only `JournalShelfLife` to at least **14** days and leaving `JournalShelfCapacity` at Revit's 10, and `revit.journals` compresses after 3 days with **no** protected-newest count (D19). | Accepted (measured 2026-11-03) | Journals compressed weekly after 3 days are at most about 10 days old while raw, so a 14-day shelf life means Revit never deletes one DeadLoad still has to archive. Keeping the capacity at 10 keeps Revit's own cap for users DeadLoad cannot touch (a profile whose owner never closes Revit is skipped by the process guard): their journals stay bounded at about 10 per year instead of growing without limit. The ini is written only while that user runs no guarded process (Revit rewrites it on exit). |
+| D19 | `revit.journals` protection is age only (48 hours); the "keep newest N" protection applies to deletion under pressure (`PressureKeepNewest` 20), not to compression. | Accepted | Compression is lossless and verified before the original goes. Protecting the newest 20 from compression kept them raw past Revit's 10-day shelf life, where Revit deletes them (D18). |
+| D20 | `user.temp` is not process-guarded as a whole (a user who never closes Revit still gets temp cleanup), but while the profile's owner runs a guarded process its files matching `*revit*` or `*acad*` are protected (`GuardedPatterns`). | Accepted | One host held 7.4 GB of a running Revit session's temp files in `{Temp}`; a session left open for over a week would otherwise expose them to the 7-day rule. |
+| D21 | Desktop Connector is not a guarded process. | Accepted (measured 2026-11-03) | `DesktopConnector.Applications.Tray.exe` ran for the signed-in user on all seven hosts, so guarding on it would exempt every signed-in user from every guarded category. Its workspace is a protected path and is never entered, which is the protection SR-2 intended. |
 
 ## 3. Repository layout
 
@@ -192,30 +195,30 @@ Every item decision (kept or acted, and why) goes to the run log; the summary ca
 ## 7. Built-in categories (initial defaults)
 
 Evidence: M = measured on a workstation, D = Autodesk documentation, C = candidate only (see
-MEASUREMENTS.md). Ship rule: a category ships **enabled** only when its paths are M. Until the
-measurement phase, C/D categories are enabled only in tests.
+MEASUREMENTS.md, hosts A to G measured 2026-11-03). Ship rule: a category ships **enabled** only
+when its paths are M; an M category may still ship off for the reason given.
 
-| ID | Scope | Root(s) | Unit | Protect | Routine | Pressure (tier: action, age) | Default | Evidence |
+| ID | Scope | Root(s) | Unit | Protect | Routine | Pressure (tier: action, age, keep) | Default | Evidence |
 |---|---|---|---|---|---|---|---|---|
-| `revit.journals` | User | `{LocalAppData}\Autodesk\Revit\Autodesk Revit *\Journals` (top level only; `Archive\` excluded) | File | 48 h, newest 20 per group | Compress after 3 d (Modified) into `Archive\journals-YYYY-MM.zip` | 5: Delete, 2 d | On | M (2023), D (all years) |
-| `revit.journals.archive` | User | `...\Journals\Archive\*.zip` | File | newest 1 | Delete after 180 d | 1: Delete, 30 d | On | design |
-| `revit.webcache` | User | `...\Autodesk Revit *\CefCache`, `...\Autodesk Revit *\WebBrowserControl` | File | 24 h | Delete after 14 d (Newest) | 2: Delete, 3 d | On | D |
-| `revit.paccache` | User | `{LocalAppData}\Autodesk\Revit\PacCache` (keep `Logs\`, `*.json`) | File | 24 h | none | 3: Delete, 7 d | On | M, D |
-| `revit.collabcache` | User | `<cache root>\Autodesk Revit *\CollaborationCache\*` | Folder (project) | 90 d | none | 6: Delete, 90 d | Off | M (2023), D |
-| `revit.oldversions` | User | `{LocalAppData}\Autodesk\Revit\Autodesk Revit <year>` for years not installed (excl. `CollaborationCache\`) | Root | 30 d | Delete after 90 d | 2: Delete, 30 d | On | C |
-| `revit.ini.journalshelf` | User | `{AppData}\Autodesk\Revit\Autodesk Revit *\Revit.ini` `[Backups]` | setting | n/a | Raise `JournalShelfCapacity`/`Life` to at least the journal retention | n/a | Off (D18) | D |
-| `autocad.graphicscache` | User | `{LocalAppData}\Autodesk\AutoCAD *\R*\*\GraphicsCache`, `{LocalAppData}\Autodesk\C3D *\*\GraphicsCache` | File | 24 h | Delete after 30 d | 2: Delete, 7 d | On | D |
-| `autocad.recovery` | User | `{Temp}` top level: `*.sv$`, `*.ac$` | File | 72 h | Delete after 30 d | 2: Delete, 7 d | On | D |
-| `autocad.errorlogs` | User | `{Temp}` and `{LocalAppData}\CrashDumps`: `acad*.err`, `acadstk*.dmp`, `acad*.dmp` | File | 24 h | Delete after 30 d | 2: Delete, 7 d | On | D |
-| `autodesk.cer` | User | `{LocalAppData}\Autodesk\CER\*` | Folder | newest 5 | Delete after 30 d | 2: Delete, 7 d | On | C |
-| `autodesk.installlogs` | User | `{LocalAppData}\Autodesk\ODIS\*.log` | File | newest 5 | Delete after 90 d | 2: Delete, 30 d | On | D |
-| `autodesk.installers` | Machine | `{SystemDrive}\Autodesk\*` (never `Network License Manager`, never an `InstallSource`) | Folder | 90 d | none | 4: Delete, 90 d | Off | D |
-| `user.temp` | User | `{Temp}` (excluding patterns owned by `autocad.*`) | File | 24 h | Delete after 7 d | 2: Delete, 1 d | On | M |
+| `revit.journals` | User | `{LocalAppData}\Autodesk\Revit\Autodesk Revit *\Journals` (top level only) | File | 48 h (D19) | Compress after 3 d (Modified) into `Archive\journals-YYYY-MM.zip` | 5: Delete, 2 d, keep newest 20 | On | M (2015 to 2026) |
+| `revit.journals.archive` | User | `...\Journals\Archive\*.zip` | File | newest 1 | Delete after 180 d | 1: Delete, 30 d | On | design (created by DeadLoad) |
+| `revit.webcache` | User | `...\Autodesk Revit *\CefCache`, `...\Autodesk Revit *\WebBrowserControl` | File | 24 h | Delete after 14 d (Newest) | 2: Delete, 3 d | On | M (CefCache 2023 to 2025, WebBrowserControl 2026) |
+| `revit.paccache` | User | `{LocalAppData}\Autodesk\Revit\PacCache` (keep `Logs\`, `*.json`) | File | 24 h | none (D9) | 3: Delete, 7 d | On | M |
+| `revit.collabcache` | User | `{LocalAppData}\Autodesk\Revit\Autodesk Revit *\CollaborationCache\*` (hub folders; items are project folders) | Folder (project) | 90 d | none | 6: Delete, 90 d | Off (D7) | M (2023 to 2026) |
+| `revit.oldversions` | User | `{LocalAppData}\Autodesk\Revit\Autodesk Revit <year>` for years not installed (excl. `CollaborationCache\`) | Root | 30 d | Delete after 90 d | 2: Delete, 30 d | Off | M: measured folders hold only journals, dumps and model backups; `revit.journals` already treats those journals as records (compress, archive, expire), and a whole-folder delete is the owner's records decision |
+| `revit.ini.journalshelf` | User | `{AppData}\Autodesk\Revit\Autodesk Revit *\Revit.ini` `[Backups]` | setting | guarded | Raise `JournalShelfLife` to at least 14 d, `JournalShelfCapacity` to at least 10 | n/a | On (D18) | M (path, absence of keys, pruning), D (semantics) |
+| `autocad.graphicscache` | User | `{LocalAppData}\Autodesk\AutoCAD *\R*\*\GraphicsCache`, `{LocalAppData}\Autodesk\C3D *\*\GraphicsCache` | File | 24 h | Delete after 30 d | 2: Delete, 7 d | Off | M (parent folder; at most 34 MB of `*.acdsgccache` per user and year), D (folder name): too small to justify a default rule |
+| `autocad.recovery` | User | `{Temp}` top level: `*.sv$`, `*.ac$` | File | 72 h | Delete after 30 d | 2: Delete, 7 d | Off | D (`*.sv$` none found; `*.ac$` found, 0 bytes) |
+| `autocad.errorlogs` | User | `{Temp}` and `{LocalAppData}\CrashDumps`: `acad*.err`, `acadstk*.dmp`, `acad*.dmp` | File | 24 h | Delete after 30 d | 2: Delete, 7 d | Off | D (none found; `CrashDumps` is capped at 10 dumps by Windows Error Reporting) |
+| `autodesk.cer` | User | `{LocalAppData}\Autodesk\CER` (items: the `<hash>` crash-signature folders) | Folder | 24 h, newest 5 | Delete after 30 d (Newest) | 2: Delete, 7 d | On | M (up to 329 MB per profile) |
+| `autodesk.installlogs` | User | `{LocalAppData}\Autodesk\ODIS`: `*.log`, `*.log.*` (excluding `IHT\`) | File | 24 h, newest 5 | Delete after 90 d (Modified) | 2: Delete, 30 d | On | M (up to 365 MB per profile, mostly over 90 d) |
+| `autodesk.installers` | Machine | `{SystemDrive}\Autodesk\*` (never `Network License Manager`, never an `InstallSource`) | Folder | 90 d | none | 4: Delete, 90 d | Off (D8) | M (`WI`, `Access`; 1 to 3 `InstallSource` references per host) |
+| `user.temp` | User | `{Temp}` (excluding patterns owned by `autocad.*`) | File | 24 h; `*revit*`, `*acad*` while the owner runs a guarded process (D20) | Delete after 7 d | 2: Delete, 1 d | On | M |
 | `windows.temp` | Machine | `{WindowsTemp}` | File | 24 h | Delete after 7 d | 2: Delete, 1 d | On | M |
 
-Machine defaults: floor 15 % or 20 GB, target 20 % or 30 GB; time budget 20 min; no byte cap;
-100,000 items per run; Maintenance weekly Sunday 03:00 with "start when available"; PressureCheck
-daily 12:30 plus System event 2013 (low disk).
+Machine defaults (D10): floor 5 % or 30 GB, target 8 % or 45 GB (larger of each pair, in
+bytes); time budget 20 min; no byte cap; 100,000 items per run; Maintenance weekly Sunday 03:00
+with "start when available"; PressureCheck daily 12:30 plus System event 2013 (low disk).
 
 Protected patterns (all categories except `revit.collabcache`): `*.rvt *.rfa *.rte *.rft *.dwg
 *.dwt *.dws *.dxf *.bak *.nwd *.nwf *.nwc *.ifc *.pdf`. Protected paths (never entered):
@@ -224,8 +227,8 @@ Protected patterns (all categories except `revit.collabcache`): `*.rvt *.rfa *.r
 from `HKLM`/`HKCU\SOFTWARE\Autodesk\Desktop Connector Advanced Settings`.
 
 Guarded processes (per profile owner): `Revit`, `RevitWorker`, `acad`, `AcCoreConsole`,
-`DesktopConnector.Applications.Tray`, `Roamer`, `dwgviewr`. Machine-scope installer category is
-also guarded by `AdODIS*`, `AdskAccess*`, `Setup` under `{SystemDrive}\Autodesk`.
+`Roamer`, `dwgviewr` (D21). Machine-scope installer category is also guarded by `AdODIS*`,
+`AdskAccess*`, `Setup`, `Installer` run by any owner.
 
 ## 8. Safety model
 

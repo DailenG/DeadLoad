@@ -73,7 +73,7 @@ values, share paths) live only in its GPO and its Chocolatey feed, never in this
 | ID | Requirement |
 |---|---|
 | SR-1 | Never traverse or delete a reparse point (junction, symlink, mount point, cloud placeholder), at any depth, including every ancestor of a target root. |
-| SR-2 | Skip a profile's Autodesk categories while that user runs Revit, AutoCAD, Desktop Connector, Navisworks or another guarded process. |
+| SR-2 | Skip a profile's Autodesk categories while that user runs Revit, AutoCAD, Navisworks, DWG TrueView or another guarded process (Desktop Connector runs for every signed-in user and is not guarded; its workspace is never entered: ARCHITECTURE D21). |
 | SR-3 | Skip locked files; re-check existence, attributes, activity and locks at action time. |
 | SR-4 | Per-run budgets: time, bytes, item count. Stop cleanly and report partial results. |
 | SR-5 | Never touch user data (section 4). Protected patterns apply in every category except where a category is explicitly a cache of those types (collaboration cache). |
