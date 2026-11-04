@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The version must equal ModuleVersion in src/engine/DeadLoad/DeadLoad.psd1; build/Build.ps1
+     and tests/Packaging.Tests.ps1 both refuse a mismatch. -->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>deadload</id>
+    <version>0.1.0</version>
+    <title>DeadLoad</title>
+    <authors>Dailen Gunter</authors>
+    <owners>Dailen Gunter</owners>
+    <licenseUrl>https://www.gnu.org/licenses/gpl-3.0.html</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <tags>deadload autodesk revit autocad disk-space cleanup retention admin</tags>
+    <summary>Disk space management for Autodesk Revit and AutoCAD workstations.</summary>
+    <description>DeadLoad manages the disk space Autodesk Revit and AutoCAD leave on Windows workstations: journals, worker logs, crash dumps, web, graphics and accelerator caches, autosave and temp leftovers, installer extracts and crash reports. It runs unattended as SYSTEM from its own scheduled tasks, applies log-management style retention with a free-space floor and target, treats Revit journals as records, is configured by Group Policy (ADMX included) and gives each user a tray app for self-service.
+
+Package parameters:
+
+* `/NoTray` - do not start the tray at sign-in.
+* `/ReportOnly` - set the local ReportOnly value: plan and report, delete nothing.
+* `/InstallAdmxLocally` - copy the ADMX and ADML into the local PolicyDefinitions folder.
+* `/PurgeData` - on uninstall, also remove reports, logs and local settings.
+
+Installing retires the legacy Get-FreeSpace 1.3.5.0 MSI and its leftovers.</description>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
