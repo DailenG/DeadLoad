@@ -477,6 +477,28 @@ Describe 'Phase 1 safety and retention' {
         $output[0].PSObject.TypeNames | Should -Contain 'DeadLoad.RunSummary'
     }
 
+    It 'User mode cleans only the current profile, applies the tray age floor and reports to its own file' {
+        foreach ($user in $script:sb.Alice, $script:sb.Bob)
+        {
+            New-DLTestFile -Path (Join-Path $user 'AppData\Local\Temp\old.tmp') -ModifiedDaysAgo 30 | Out-Null
+            New-DLTestFile -Path (Join-Path $user 'AppData\Local\Temp\recent.tmp') -ModifiedDaysAgo 10 | Out-Null
+            New-DLTestFile -Path (Join-Path $user 'AppData\Local\Autodesk\Revit\Autodesk Revit 2026\WebBrowserControl\cache.bin') -ModifiedDaysAgo 30 | Out-Null
+        }
+        $config = New-DLTestConfiguration
+        $config.Tray = @{ CleanTempMinAgeDays = 20 }
+
+        $summary = Invoke-DLTestRun -Configuration $config -Mode User
+
+        Test-Path -LiteralPath (Join-Path $script:sb.Alice 'AppData\Local\Temp\old.tmp') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $script:sb.Alice 'AppData\Local\Temp\recent.tmp') | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $script:sb.Bob 'AppData\Local\Temp\old.tmp') | Should -BeTrue
+        # Not a user-action category: caches are SYSTEM's job.
+        Test-Path -LiteralPath (Join-Path $script:sb.Alice 'AppData\Local\Autodesk\Revit\Autodesk Revit 2026\WebBrowserControl\cache.bin') | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $script:sb.Data 'last-user-action.json') | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $script:sb.Data 'last-run.json') | Should -BeFalse
+        $summary[0].Mode | Should -Be 'User'
+    }
+
     It '1.21 reports freed bytes equal to confirmed deletions, the locked file excluded' {
         $temp = Join-Path $script:sb.Alice 'AppData\Local\Temp'
         $sizes = @(1000, 2000, 3000, 4000)

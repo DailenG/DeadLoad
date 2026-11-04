@@ -61,7 +61,9 @@ function Invoke-DeadLoad
 
         $effectiveReportOnly = ([bool]$ReportOnly -or [int]$config.General.ReportOnly -eq 1)
         $run = New-DLRunContext -Configuration $config -Mode $Mode -DataRoot $DataRoot -ReportOnly $effectiveReportOnly -WhatIf $isWhatIf
-        $run.NoEventLog = [bool]$NoEventLog
+        # User runs log to the user's own file only: the machine's Application log (and the RMM
+        # alerts on it) describes SYSTEM runs; the tray's entry point writes event 4001.
+        $run.NoEventLog = ([bool]$NoEventLog -or $Mode -eq 'User')
         $run.Trace = ConvertTo-DLArray -Value $config.Trace
 
         Write-DLEvent -Run $run -Id 1000 -Message ('DeadLoad {0} run started: mode {1}, report-only {2}, what-if {3}.' -f $script:DLVersion, $Mode, $effectiveReportOnly, $isWhatIf)
@@ -267,7 +269,7 @@ function Invoke-DeadLoad
         {
             $fallback = @{ General = @{ TimeBudgetMinutes = 1; LogRetentionDays = 0 }; Trace = @() }
             $run = New-DLRunContext -Configuration $fallback -Mode $Mode -DataRoot $DataRoot -ReportOnly $true -WhatIf $isWhatIf
-            $run.NoEventLog = [bool]$NoEventLog
+            $run.NoEventLog = ([bool]$NoEventLog -or $Mode -eq 'User')
             $run.Trace = @()
         }
         Write-DLEvent -Run $run -Id 3000 -Level Error -Message ('Run error: {0} at {1} {2}' -f $_.Exception.Message, $_.InvocationInfo.PositionMessage, $_.ScriptStackTrace)

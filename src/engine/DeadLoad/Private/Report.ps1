@@ -137,7 +137,10 @@ function Save-DLRunReport
         $encoding = New-Object System.Text.UTF8Encoding($false)
         [System.IO.File]::WriteAllText((Join-Path $runs ('{0}.json' -f $Run.RunId)), $json, $encoding)
         # Write-then-rename so a reader never sees half a file.
-        $last = Join-Path $Run.DataRoot 'last-run.json'
+        # A user's own run reports beside, never over, the machine's last run.
+        $reportName = 'last-run.json'
+        if ($Run.Mode -eq 'User') { $reportName = 'last-user-action.json' }
+        $last = Join-Path $Run.DataRoot $reportName
         $temporary = $last + '.tmp'
         [System.IO.File]::WriteAllText($temporary, $json, $encoding)
         # [NullString]: PowerShell turns $null into '' for a string argument, which Replace rejects.
